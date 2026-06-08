@@ -1,6 +1,7 @@
+use crate::activity_bar::status_bar_only_panel_keys;
 use crate::focus_follows_mouse::FocusFollowsMouse as _;
 use crate::persistence::model::DockData;
-use crate::status_bar::HideStatusItem;
+use crate::status_bar::{HideStatusItem, configure_status_bar_icon_button};
 use crate::workspace_settings::ActivityBarSettings;
 use crate::{DraggedDock, Event, ModalLayer, Pane, WorkspaceSettings};
 use crate::{Workspace, status_bar::StatusItemView};
@@ -579,8 +580,10 @@ pub(crate) fn render_panel_button(
             .anchor(menu_anchor)
             .attach(menu_attach)
             .trigger(move |is_active, _window, _cx| {
-                let button = IconButton::new((name, is_active_button as u64), icon)
-                    .icon_size(icon_size)
+                let button = configure_status_bar_icon_button(
+                    IconButton::new((name, is_active_button as u64), icon),
+                    icon_size,
+                )
                     .toggle_state(is_active_button)
                     .tab_index(0isize)
                     .aria_label(icon_tooltip)
@@ -1663,12 +1666,7 @@ impl PanelButtons {
 
 impl Render for PanelButtons {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let activity_bar_settings = ActivityBarSettings::get_global(cx);
-        let only_panel_keys = if activity_bar_settings.enabled {
-            activity_bar_settings.status_bar_buttons.as_deref()
-        } else {
-            None
-        };
+        let only_panel_keys = status_bar_only_panel_keys(&ActivityBarSettings::get_global(cx));
 
         let dock_position = self.dock.read(cx).position;
         let icon_size = crate::status_bar::status_bar_icon_size(cx);
