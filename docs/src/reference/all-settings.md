@@ -1817,6 +1817,31 @@ Positive `integer` value between 1 and 32. Values outside of this range will be 
 
 `boolean` values
 
+## Activity Bar
+
+- Description: Show a VS Code-style vertical activity bar on the left for panel buttons.
+- Setting: `activity_bar`
+- Default:
+
+```json [settings]
+{
+  "activity_bar": {
+    "enabled": false,
+    "icon_size": "medium"
+  }
+}
+```
+
+**Options**
+
+- `enabled`:
+  - Description: Whether to show the activity bar.
+  - Default: `false`
+- `icon_size`:
+  - Description: Size of icons in the activity bar.
+  - Default: `medium`
+  - Values: `small`, `medium`
+
 ## Status Bar
 
 - Description: Control various elements in the status bar. Note that some items in the status bar have their own settings set elsewhere.
