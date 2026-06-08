@@ -204,6 +204,7 @@ pub struct SettingsContent {
     pub tab_bar: Option<TabBarSettingsContent>,
     pub tab_switcher: Option<TabSwitcherSettingsContent>,
     pub status_bar: Option<StatusBarSettingsContent>,
+    pub activity_bar: Option<ActivityBarSettingsContent>,
 
     pub preview_tabs: Option<PreviewTabsSettingsContent>,
 
