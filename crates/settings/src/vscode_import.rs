@@ -833,6 +833,7 @@ impl VsCodeSettings {
             line_endings_button: None,
             active_encoding_button: None,
             pending_keystrokes_indicator: None,
+            panel_button_icon_size: None,
         })
     }
 

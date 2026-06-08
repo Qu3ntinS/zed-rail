@@ -1998,7 +1998,7 @@ Positive `integer` value between 1 and 32. Values outside of this range will be 
 {
   "activity_bar": {
     "enabled": false,
-    "icon_size": "medium"
+    "icon_size": "medium",
   }
 }
 ```
@@ -2011,7 +2011,15 @@ Positive `integer` value between 1 and 32. Values outside of this range will be 
 - `icon_size`:
   - Description: Size of icons in the activity bar.
   - Default: `medium`
-  - Values: `small`, `medium`
+  - Values: `small`, `medium`, `large`
+- `status_bar_buttons`:
+  - Description: Panel buttons to show in the status bar instead of the activity bar. Use panel keys (e.g. `ProjectPanel`, `GitPanel`) and `search` for the project search button. Buttons appear at their dock position in the status bar.
+  - Default: `null` (all buttons in the activity bar)
+  - Values: array of strings
+- `button_order`:
+  - Description: Order of buttons in the activity bar. Use panel keys (e.g. `ProjectPanel`, `GitPanel`) and `search` for the project search button.
+  - Default: VS Code-inspired default order
+  - Values: array of strings
 
 ## Status Bar
 
@@ -2027,7 +2035,8 @@ Positive `integer` value between 1 and 32. Values outside of this range will be 
     "cursor_position_button": true,
     "line_endings_button": false,
     "active_encoding_button": "non_utf8",
-    "pending_keystrokes_indicator": true
+    "pending_keystrokes_indicator": true,
+    "panel_button_icon_size": "small"
   }
 }
 ```
@@ -2040,6 +2049,10 @@ Positive `integer` value between 1 and 32. Values outside of this range will be 
 - `line_endings_button`: Whether to show the active line endings button (clicking it opens the line-ending selector)
 - `active_encoding_button`: When to show the active encoding button: `"enabled"`, `"disabled"`, or `"non_utf8"` (only for encodings other than UTF-8 without BOM)
 - `pending_keystrokes_indicator`: Whether to show an indicator with a countdown while timed multi-stroke input is pending. Hovering the indicator pauses the timeout. Its binding preview popover is disabled when the which-key popup is enabled (see [key bindings](../key-bindings.md#precedence))
+- `panel_button_icon_size`:
+  - Description: Size of panel button icons in the status bar.
+  - Default: `small`
+  - Values: `small`, `medium`, `large`
 
 There is an experimental setting that completely hides the status bar. This causes major usability problems (you will be unable to use many of Zed's features), but is provided for those who value screen real-estate above all else.
 
