@@ -1,12 +1,12 @@
 use crate::{
     ItemHandle, MultiWorkspace, Pane, SidebarSide, ToggleWorkspaceSidebar,
-    sidebar_side_context_menu,
+    sidebar_side_context_menu, workspace_settings::StatusBarSettings,
 };
 use gpui::{
-    Anchor, AnyView, App, Context, Decorations, Entity, FocusHandle, Focusable, IntoElement,
-    ParentElement, Render, Role, SharedString, Styled, Subscription, WeakEntity, Window,
+    Anchor, AnyView, App, Context, Decorations, Entity, IntoElement, ParentElement, Render,
+    SharedString, Styled, Subscription, WeakEntity, Window, px,
 };
-use settings::{SettingsContent, update_settings_file};
+use settings::{ActivityBarIconSize, Settings, SettingsContent, SettingsStore, update_settings_file};
 use std::{any::TypeId, sync::Arc};
 use theme::CLIENT_SIDE_DECORATION_ROUNDING;
 use ui::{ContextMenu, Divider, IconPosition, Indicator, Tooltip, prelude::*, right_click_menu};
@@ -97,19 +97,25 @@ impl SidebarStatus {
     }
 }
 
+pub fn icon_size_from_setting(icon_size: ActivityBarIconSize) -> IconSize {
+    match icon_size {
+        ActivityBarIconSize::Small => IconSize::Small,
+        ActivityBarIconSize::Medium => IconSize::Medium,
+        ActivityBarIconSize::Large => IconSize::Custom(rems_from_px(20.)),
+    }
+}
+
+pub fn status_bar_icon_size(cx: &App) -> IconSize {
+    icon_size_from_setting(StatusBarSettings::get_global(cx).panel_button_icon_size)
+}
+
 pub struct StatusBar {
     left_items: Vec<Box<dyn StatusItemViewHandle>>,
     right_items: Vec<Box<dyn StatusItemViewHandle>>,
     active_pane: Entity<Pane>,
     multi_workspace: Option<WeakEntity<MultiWorkspace>>,
-    focus_handle: FocusHandle,
     _observe_active_pane: Subscription,
-}
-
-impl Focusable for StatusBar {
-    fn focus_handle(&self, _cx: &App) -> FocusHandle {
-        self.focus_handle.clone()
-    }
+    _settings_subscription: Subscription,
 }
 
 impl Render for StatusBar {
@@ -117,40 +123,12 @@ impl Render for StatusBar {
         let sidebar = SidebarStatus::query(&self.multi_workspace, cx);
 
         h_flex()
-            .id("status-bar")
-            .track_focus(&self.focus_handle)
-            .key_context("StatusBar")
-            // Expose the status bar as an ARIA toolbar so assistive technology
-            // announces it as a toolbar and region navigation can reach its
-            // controls. The controls inside form a tab group: region navigation
-            // lands on the first control (per the ARIA toolbar pattern), Tab
-            // steps through them, and arrow keys move between them once focus is
-            // inside.
-            .role(Role::Toolbar)
-            .aria_label("Status bar")
-            .tab_group()
-            .on_key_down(
-                cx.listener(|status_bar, event: &gpui::KeyDownEvent, window, cx| {
-                    if event.keystroke.modifiers.modified() {
-                        return;
-                    }
-                    match event.keystroke.key.as_str() {
-                        "right" => {
-                            status_bar.move_item_focus(true, window, cx);
-                            cx.stop_propagation();
-                        }
-                        "left" => {
-                            status_bar.move_item_focus(false, window, cx);
-                            cx.stop_propagation();
-                        }
-                        _ => {}
-                    }
-                }),
-            )
             .w_full()
             .justify_between()
+            .items_center()
             .gap(DynamicSpacing::Base08.rems(cx))
-            .p(DynamicSpacing::Base04.rems(cx))
+            .px(DynamicSpacing::Base04.rems(cx))
+            .py(DynamicSpacing::Base02.rems(cx))
             .bg(cx.theme().colors().status_bar_background)
             .map(|el| match window.window_decorations() {
                 Decorations::Server => el,
@@ -237,6 +215,7 @@ impl StatusBar {
         let on_right = sidebar.side == SidebarSide::Right;
         let has_notifications = sidebar.has_notifications;
         let indicator_border = cx.theme().colors().status_bar_background;
+        let icon_size = status_bar_icon_size(cx);
 
         let toggle = sidebar_side_context_menu("sidebar-status-toggle-menu", cx)
             .anchor(if on_right {
@@ -258,9 +237,7 @@ impl StatusBar {
                         IconName::ThreadsSidebarLeftClosed
                     },
                 )
-                .icon_size(IconSize::Small)
-                .tab_index(0isize)
-                .aria_label("Open threads sidebar")
+                .icon_size(icon_size)
                 .when(has_notifications, |this| {
                     this.indicator(Indicator::dot().color(Color::Accent))
                         .indicator_border_color(Some(indicator_border))
@@ -335,10 +312,10 @@ impl StatusBar {
             right_items: Default::default(),
             active_pane: active_pane.clone(),
             multi_workspace,
-            focus_handle: cx.focus_handle(),
             _observe_active_pane: cx.observe_in(active_pane, window, |this, _, window, cx| {
                 this.update_active_pane_item(window, cx)
             }),
+            _settings_subscription: cx.observe_global::<SettingsStore>(|_, cx| cx.notify()),
         };
         this.update_active_pane_item(window, cx);
         this
@@ -451,26 +428,6 @@ impl StatusBar {
         for item in self.left_items.iter().chain(&self.right_items) {
             item.set_active_pane_item(active_pane_item.as_deref(), window, cx);
         }
-    }
-
-    /// Moves focus between the interactive controls within the status bar in
-    /// response to arrow keys. Navigation is clamped to the status bar so
-    /// arrows move between items and stop at the ends (ARIA toolbar semantics);
-    /// Tab is still used to leave the toolbar.
-    fn move_item_focus(&mut self, forward: bool, window: &mut Window, cx: &mut Context<Self>) {
-        let previous = window.focused(cx);
-        if forward {
-            window.focus_next(cx);
-        } else {
-            window.focus_prev(cx);
-        }
-        let landed_in_status_bar = window
-            .focused(cx)
-            .is_some_and(|handle| self.focus_handle.contains(&handle, window));
-        if !landed_in_status_bar && let Some(previous) = previous {
-            window.focus(&previous, cx);
-        }
-        cx.notify();
     }
 }
 

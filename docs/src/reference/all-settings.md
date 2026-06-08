@@ -2123,7 +2123,7 @@ Positive `integer` value between 1 and 32. Values outside of this range will be 
 - `active_encoding_button`: When to show the active encoding button: `"enabled"`, `"disabled"`, or `"non_utf8"` (only for encodings other than UTF-8 without BOM)
 - `pending_keystrokes_indicator`: Whether to show an indicator while multi-stroke input is pending. If the input has a timeout, a countdown is shown and hovering the indicator pauses it. Its binding preview popover is disabled when the which-key popup is enabled (see [key bindings](../key-bindings.md#precedence))
 - `panel_button_icon_size`:
-  - Description: Size of panel button icons in the status bar.
+  - Description: Size of icons in the status bar, including panel buttons, search, diagnostics, and language servers.
   - Default: `small`
   - Values: `small`, `medium`, `large`
 
