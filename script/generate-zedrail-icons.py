@@ -9,7 +9,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageEnhance
+from PIL import Image, ImageDraw, ImageEnhance, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 BRAND_DIR = ROOT / "crates/zed/resources/brand"
@@ -132,6 +132,70 @@ def generate_icon(size: int) -> Image.Image:
     return canvas
 
 
+def load_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    candidates = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/TTF/DejaVuSans.ttf",
+        "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+    ]
+    for path in candidates:
+        if Path(path).exists():
+            return ImageFont.truetype(path, size)
+    return ImageFont.load_default()
+
+
+def generate_social_preview(width: int = 1280, height: int = 640) -> Image.Image:
+    background = Image.new("RGBA", (width, height), (22, 22, 24, 255))
+    draw = ImageDraw.Draw(background)
+
+    for x in range(width):
+        blend = x / max(width - 1, 1)
+        color = (
+            int(22 + blend * 8),
+            int(22 + blend * 10),
+            int(24 + blend * 18),
+            255,
+        )
+        draw.line([(x, 0), (x, height)], fill=color)
+
+    icon_size = 420
+    icon = generate_icon(icon_size)
+    icon_x = 120
+    icon_y = (height - icon_size) // 2
+    background.paste(icon, (icon_x, icon_y), icon)
+
+    text_x = icon_x + icon_size + 80
+    title_font = load_font(88, bold=True)
+    subtitle_font = load_font(36)
+    detail_font = load_font(28)
+
+    draw.text((text_x, 190), "ZedRail", fill=(255, 255, 255, 255), font=title_font)
+    draw.rectangle(
+        [(text_x, 290), (text_x + 120, 296)],
+        fill=BRAND_BLUE,
+    )
+    draw.text(
+        (text_x, 320),
+        "Zed with an Activity Bar",
+        fill=(210, 210, 215, 255),
+        font=subtitle_font,
+    )
+    draw.text(
+        (text_x, 390),
+        "Community fork · GitHub Releases",
+        fill=(140, 140, 150, 255),
+        font=detail_font,
+    )
+    draw.text(
+        (text_x, 430),
+        "Install alongside official Zed",
+        fill=(140, 140, 150, 255),
+        font=detail_font,
+    )
+
+    return background.convert("RGB")
+
+
 def write_windows_ico(icon_512: Path, icon_1024: Path, output: Path) -> None:
     subprocess.run(
         [
@@ -170,6 +234,11 @@ def main() -> int:
     preview_path = BRAND_DIR / "zedrail-app-icon-preview.png"
     preview.save(preview_path, optimize=True)
     print(f"Wrote {preview_path} (256×256 preview)")
+
+    social_preview = generate_social_preview()
+    social_preview_path = BRAND_DIR / "zedrail-social-preview.png"
+    social_preview.save(social_preview_path, optimize=True)
+    print(f"Wrote {social_preview_path} (1280×640 GitHub social preview)")
 
     return 0
 
