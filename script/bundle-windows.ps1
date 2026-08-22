@@ -131,7 +131,7 @@ function GenerateLicenses {
 function BuildZedAndItsFriends {
     Write-Output "Building Zed and its friends, for channel: $channel"
     # Build zed.exe, cli.exe and auto_update_helper.exe
-    cargo build --release --package zed --package cli --package auto_update_helper --target $target
+    cargo build --release --package zed --package cli --package auto_update_helper --bin zedrail --target $target
     $editorSource = if (Test-Path ".\$CargoOutDir\zedrail.exe") {
         ".\$CargoOutDir\zedrail.exe"
     } elseif (Test-Path ".\$CargoOutDir\zed.exe") {
