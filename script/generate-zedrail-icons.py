@@ -193,6 +193,13 @@ def generate_social_preview(width: int = 1280, height: int = 640) -> Image.Image
         font=detail_font,
     )
 
+    # Visible frame so GitHub's dark settings preview is not mistaken for an empty slot.
+    draw.rectangle(
+        [(0, 0), (width - 1, height - 1)],
+        outline=(70, 70, 78, 255),
+        width=2,
+    )
+
     return background.convert("RGB")
 
 
@@ -239,6 +246,10 @@ def main() -> int:
     social_preview_path = BRAND_DIR / "zedrail-social-preview.png"
     social_preview.save(social_preview_path, optimize=True)
     print(f"Wrote {social_preview_path} (1280×640 GitHub social preview)")
+
+    social_preview_jpg = BRAND_DIR / "zedrail-social-preview.jpg"
+    social_preview.save(social_preview_jpg, quality=92, optimize=True)
+    print(f"Wrote {social_preview_jpg} (1280×640 JPEG alternative)")
 
     return 0
 
