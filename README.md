@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="crates/zed/resources/brand/zedrail-social-preview.png" alt="ZedRail — Zed with an Activity Bar" width="100%">
+</p>
+
 # ZedRail
 
 **Zed with an Activity Bar** — a community fork of [Zed](https://github.com/zed-industries/zed).
