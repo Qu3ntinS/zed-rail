@@ -1,0 +1,96 @@
+name: zedrail-release
+
+on:
+  push:
+    tags:
+      - "v*-rail*"
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "1"
+
+jobs:
+  build_linux_x64:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: ./script/linux
+      - name: Bundle Linux
+        run: ./script/bundle-linux
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-x86_64
+          path: |
+            target/release/zedrail-linux-x86_64.tar.gz
+            target/zedrail-remote-server-linux-x86_64.gz
+
+  build_linux_arm:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: ./script/linux
+      - name: Bundle Linux
+        run: ./script/bundle-linux
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-aarch64
+          path: |
+            target/release/zedrail-linux-aarch64.tar.gz
+            target/zedrail-remote-server-linux-aarch64.gz
+
+  build_windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bundle Windows
+        shell: pwsh
+        run: ./script/bundle-windows.ps1
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x86_64
+          path: target/release/ZedRail-x86_64.exe
+
+  build_macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bundle macOS (unsigned)
+        run: ./script/bundle-mac
+        env:
+          ZED_BUNDLE: "true"
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-aarch64
+          path: target/aarch64-apple-darwin/release/ZedRail-aarch64.dmg
+
+  publish:
+    needs: [build_linux_x64, build_linux_arm, build_windows, build_macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --title "ZedRail ${{ github.ref_name }}" \
+            --notes "See [docs/FORK.md](https://github.com/${{ github.repository }}/blob/zedrail/docs/FORK.md) for activity bar setup." \
+            artifacts/linux-x86_64/zedrail-linux-x86_64.tar.gz \
+            artifacts/linux-x86_64/zedrail-remote-server-linux-x86_64.gz \
+            artifacts/linux-aarch64/zedrail-linux-aarch64.tar.gz \
+            artifacts/linux-aarch64/zedrail-remote-server-linux-aarch64.gz \
+            artifacts/windows-x86_64/ZedRail-x86_64.exe \
+            artifacts/macos-aarch64/ZedRail-aarch64.dmg

@@ -1,0 +1,98 @@
+name: sync-upstream
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: zedrail
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/zed-industries/zed.git || true
+          git fetch upstream --tags
+
+      - name: Check for new upstream stable release
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest_upstream=$(gh release list --repo zed-industries/zed --limit 20 \
+            --json tagName,isPrerelease \
+            --jq '[.[] | select(.isPrerelease == false)] | first | .tagName')
+          echo "latest_upstream=${latest_upstream}" >> "$GITHUB_OUTPUT"
+
+          latest_zedrail=$(gh release list --repo "${{ github.repository }}" --limit 1 \
+            --json tagName --jq '.[0].tagName // ""')
+          echo "latest_zedrail=${latest_zedrail}" >> "$GITHUB_OUTPUT"
+
+          upstream_version="${latest_upstream#v}"
+          if [[ "${latest_zedrail}" == "v${upstream_version}-rail."* ]] || \
+             [[ "${latest_zedrail}" == "v${upstream_version}-rail" ]]; then
+            echo "needs_sync=false" >> "$GITHUB_OUTPUT"
+            echo "Already synced to ${latest_upstream}"
+          else
+            echo "needs_sync=true" >> "$GITHUB_OUTPUT"
+            echo "New upstream release: ${latest_upstream}"
+          fi
+
+      - name: Merge upstream into main
+        if: steps.check.outputs.needs_sync == 'true'
+        run: |
+          git checkout main
+          git merge upstream/main --no-edit -m "Sync upstream ${UPSTREAM_TAG}"
+        env:
+          UPSTREAM_TAG: ${{ steps.check.outputs.latest_upstream }}
+
+      - name: Rebase zedrail onto main
+        if: steps.check.outputs.needs_sync == 'true'
+        id: rebase
+        run: |
+          git checkout zedrail
+          if ! git rebase main; then
+            echo "rebase_failed=true" >> "$GITHUB_OUTPUT"
+            git rebase --abort
+          else
+            echo "rebase_failed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open issue on rebase failure
+        if: steps.check.outputs.needs_sync == 'true' && steps.rebase.outputs.rebase_failed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UPSTREAM_TAG: ${{ steps.check.outputs.latest_upstream }}
+        run: |
+          gh issue create \
+            --title "Upstream sync failed: rebase conflict (${UPSTREAM_TAG})" \
+            --body "Automatic sync from zed-industries/zed ${UPSTREAM_TAG} failed during rebase of zedrail onto main. Manual resolution required."
+
+      - name: Tag and push release
+        if: steps.check.outputs.needs_sync == 'true' && steps.rebase.outputs.rebase_failed == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          upstream_version="${UPSTREAM_TAG#v}"
+          tag="v${upstream_version}-rail.1"
+          git push origin main
+          git push origin zedrail --force-with-lease
+          git tag "${tag}"
+          git push origin "${tag}"
+        env:
+          UPSTREAM_TAG: ${{ steps.check.outputs.latest_upstream }}
