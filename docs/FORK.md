@@ -46,7 +46,9 @@ The `sync-upstream.yml` workflow polls [zed-industries/zed releases](https://git
 2. `.zedrail/upstream-stable` is updated with the version number
 3. `main` is merged into `zedrail`
 4. `Cargo.toml` is verified to match the stable version
-5. A new `v{stable}-rail.{patch}` tag is created and the release workflow runs
+5. A new `v{stable}-rail.{patch}` tag is created and `zedrail-release.yml` is invoked via `workflow_call`
+
+Releases can also be rebuilt manually: **Actions → zedrail-release → Run workflow** with a tag (e.g. `v1.16.1-rail.4`).
 
 If `zedrail` is still based on `upstream/main` (dev), the workflow stops and asks for a one-time migration:
 
