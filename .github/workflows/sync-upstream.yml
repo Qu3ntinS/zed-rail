@@ -12,7 +12,7 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     outputs:
-      created_tag: ${{ steps.push_release.outputs.created_tag }}
+      release_tag: ${{ steps.push_release.outputs.created_tag || steps.check_release.outputs.retry_tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -180,11 +180,42 @@ jobs:
           echo "created_tag=${tag}" >> "$GITHUB_OUTPUT"
           echo "Created tag ${tag}"
 
+      - name: Check if failed release needs retry
+        id: check_release
+        if: steps.push_release.outputs.created_tag == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest=$(git tag -l 'v*-rail.*' --sort=-v:refname | head -1)
+          if [[ -z "${latest}" ]]; then
+            exit 0
+          fi
+          if gh release view "${latest}" >/dev/null 2>&1; then
+            echo "Release ${latest} already published"
+            exit 0
+          fi
+          tag_sha=$(git rev-parse "${latest}^{commit}")
+          zedrail_sha=$(git rev-parse origin/zedrail)
+          if [[ "${tag_sha}" != "${zedrail_sha}" ]]; then
+            echo "Latest tag ${latest} is not at zedrail HEAD, skipping retry"
+            exit 0
+          fi
+          read -r status conclusion <<< "$(gh run list --repo "${{ github.repository }}" \
+            --workflow=zedrail-release.yml --limit 30 \
+            --json headBranch,status,conclusion \
+            --jq -r "[.[] | select(.headBranch == \"${latest}\")] | first | \"\(.status // \"none\") \(.conclusion // \"none\")\"")"
+          if [[ "${status}" == "in_progress" || "${status}" == "queued" ]]; then
+            echo "Release for ${latest} is ${status}, skipping retry"
+            exit 0
+          fi
+          echo "retry_tag=${latest}" >> "$GITHUB_OUTPUT"
+          echo "Retrying release for ${latest} (last: ${status}/${conclusion})"
+
   release:
     needs: sync
-    if: needs.sync.outputs.created_tag != ''
+    if: needs.sync.outputs.release_tag != ''
     permissions:
       contents: write
     uses: ./.github/workflows/zedrail-release.yml
     with:
-      tag: ${{ needs.sync.outputs.created_tag }}
+      tag: ${{ needs.sync.outputs.release_tag }}
