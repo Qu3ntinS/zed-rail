@@ -26,42 +26,70 @@ jobs:
         run: |
           git remote add upstream https://github.com/zed-industries/zed.git || true
           git fetch origin main zedrail --tags
-          git fetch upstream main --tags
+          git fetch upstream --tags
+
+      - name: Resolve latest stable release
+        id: stable
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          stable_tag=$(gh release list --repo zed-industries/zed --limit 30 \
+            --json tagName,isPrerelease \
+            --jq '[.[] | select(.isPrerelease == false)] | first | .tagName')
+          if [[ -z "${stable_tag}" ]]; then
+            echo "::error::No stable release found on zed-industries/zed"
+            exit 1
+          fi
+          stable_sha=$(git rev-parse "refs/tags/${stable_tag}^{commit}")
+          stable_version="${stable_tag#v}"
+          echo "tag=${stable_tag}" >> "$GITHUB_OUTPUT"
+          echo "sha=${stable_sha}" >> "$GITHUB_OUTPUT"
+          echo "version=${stable_version}" >> "$GITHUB_OUTPUT"
+          echo "Latest stable: ${stable_tag} (${stable_sha})"
 
       - name: Check if sync is needed
         id: check
         env:
-          GH_TOKEN: ${{ github.token }}
+          STABLE_SHA: ${{ steps.stable.outputs.sha }}
+          STABLE_VERSION: ${{ steps.stable.outputs.version }}
+          STABLE_TAG: ${{ steps.stable.outputs.tag }}
         run: |
-          upstream_sha=$(git rev-parse upstream/main)
           main_sha=$(git rev-parse origin/main)
           zedrail_sha=$(git rev-parse origin/zedrail)
+          cargo_version=$(git show "origin/zedrail:crates/zed/Cargo.toml" | awk -F'"' '/^version = / { print $2; exit }')
 
-          if git merge-base --is-ancestor "${upstream_sha}" "${main_sha}" && \
-             git merge-base --is-ancestor "${main_sha}" "${zedrail_sha}"; then
+          if [[ "${main_sha}" == "${STABLE_SHA}" ]] && \
+             git merge-base --is-ancestor "${STABLE_SHA}" "${zedrail_sha}" && \
+             [[ "${cargo_version}" == "${STABLE_VERSION}" ]]; then
             echo "needs_sync=false" >> "$GITHUB_OUTPUT"
-            echo "Already synced: upstream/main is contained in main and zedrail"
+            echo "Already synced to ${STABLE_TAG} (Cargo.toml ${cargo_version})"
             exit 0
           fi
 
-          latest_upstream=$(gh release list --repo zed-industries/zed --limit 20 \
-            --json tagName,isPrerelease \
-            --jq '[.[] | select(.isPrerelease == false)] | first | .tagName')
-          echo "latest_upstream=${latest_upstream}" >> "$GITHUB_OUTPUT"
-          echo "needs_sync=true" >> "$GITHUB_OUTPUT"
-          echo "Sync required (main or zedrail behind upstream/main)"
+          if [[ "${cargo_version}" != "${STABLE_VERSION}" ]] && \
+             ! git merge-base --is-ancestor "${STABLE_SHA}" "${zedrail_sha}"; then
+            echo "needs_sync=false" >> "$GITHUB_OUTPUT"
+            echo "::error::zedrail is on ${cargo_version} but stable is ${STABLE_VERSION}. Run ./script/rebase-on-stable.sh locally, then push main and zedrail."
+            exit 1
+          fi
 
-      - name: Merge upstream into main
+          echo "needs_sync=true" >> "$GITHUB_OUTPUT"
+          echo "Sync required: target ${STABLE_TAG}"
+
+      - name: Reset main to stable release
         if: steps.check.outputs.needs_sync == 'true'
-        id: merge_main
+        id: reset_main
         env:
-          UPSTREAM_TAG: ${{ steps.check.outputs.latest_upstream }}
+          STABLE_SHA: ${{ steps.stable.outputs.sha }}
+          STABLE_TAG: ${{ steps.stable.outputs.tag }}
         run: |
-          git checkout -B main origin/main
-          before=$(git rev-parse HEAD)
-          git merge upstream/main --no-edit -m "Sync upstream ${UPSTREAM_TAG}"
-          after=$(git rev-parse HEAD)
-          if [[ "${before}" == "${after}" ]]; then
+          main_sha=$(git rev-parse origin/main)
+          git checkout -B main "${STABLE_SHA}"
+          mkdir -p .zedrail
+          echo "${STABLE_TAG#v}" > .zedrail/upstream-stable
+          git add .zedrail/upstream-stable
+          git diff --staged --quiet || git commit -m "Track upstream stable ${STABLE_TAG}"
+          if [[ "${main_sha}" == "$(git rev-parse HEAD)" ]]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -71,13 +99,13 @@ jobs:
         if: steps.check.outputs.needs_sync == 'true'
         id: merge_zedrail
         env:
-          UPSTREAM_TAG: ${{ steps.check.outputs.latest_upstream }}
+          STABLE_TAG: ${{ steps.stable.outputs.tag }}
         run: |
           git checkout -B zedrail origin/zedrail
           before=$(git rev-parse HEAD)
-          if ! git merge main --no-edit -m "Merge upstream ${UPSTREAM_TAG} into zedrail"; then
-            echo "merge_failed=true" >> "$GITHUB_OUTPUT"
+          if ! git merge main --no-edit -m "Merge upstream stable ${STABLE_TAG} into zedrail"; then
             git merge --abort
+            echo "merge_failed=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           after=$(git rev-parse HEAD)
@@ -91,20 +119,31 @@ jobs:
       - name: Report merge failure
         if: steps.check.outputs.needs_sync == 'true' && steps.merge_zedrail.outputs.merge_failed == 'true'
         env:
-          UPSTREAM_TAG: ${{ steps.check.outputs.latest_upstream }}
+          STABLE_TAG: ${{ steps.stable.outputs.tag }}
         run: |
-          echo "::error::Upstream sync failed while merging main into zedrail for ${UPSTREAM_TAG}. Resolve conflicts locally and push."
+          echo "::error::Failed merging stable ${STABLE_TAG} into zedrail. Resolve locally with ./script/rebase-on-stable.sh"
           exit 1
+
+      - name: Verify Cargo.toml matches stable
+        if: steps.check.outputs.needs_sync == 'true' && steps.merge_zedrail.outputs.merge_failed != 'true'
+        env:
+          STABLE_VERSION: ${{ steps.stable.outputs.version }}
+        run: |
+          cargo_version=$(awk -F'"' '/^version = / { print $2; exit }' crates/zed/Cargo.toml)
+          if [[ "${cargo_version}" != "${STABLE_VERSION}" ]]; then
+            echo "::error::Cargo.toml version ${cargo_version} != stable ${STABLE_VERSION} after merge"
+            exit 1
+          fi
 
       - name: Push branches and tag release
         if: >-
           steps.check.outputs.needs_sync == 'true' &&
           steps.merge_zedrail.outputs.merge_failed != 'true' &&
-          (steps.merge_main.outputs.changed == 'true' || steps.merge_zedrail.outputs.changed == 'true')
+          (steps.reset_main.outputs.changed == 'true' || steps.merge_zedrail.outputs.changed == 'true')
         env:
-          UPSTREAM_TAG: ${{ steps.check.outputs.latest_upstream }}
+          STABLE_TAG: ${{ steps.stable.outputs.tag }}
         run: |
-          upstream_version="${UPSTREAM_TAG#v}"
+          upstream_version="${STABLE_TAG#v}"
           prefix="v${upstream_version}-rail."
 
           max_patch=0
@@ -117,7 +156,7 @@ jobs:
           done < <(git tag -l "${prefix}*")
 
           tag="${prefix}$((max_patch + 1))"
-          git push origin main
+          git push origin main --force-with-lease
           git push origin zedrail
           git tag "${tag}"
           git push origin "${tag}"

@@ -8,10 +8,12 @@ ZedRail is an independent fork of [Zed](https://github.com/zed-industries/zed) t
 
 | Branch | Purpose |
 |--------|---------|
-| `main` | Mirrors upstream Zed (`zed-industries/zed`) |
+| `main` | Tracks the latest **stable** Zed release tag (same as [zed.dev](https://zed.dev) / GitHub Releases) |
 | `zedrail` | Activity bar + ZedRail branding + release config |
 
-Release tags use the format `v{zed_version}-rail.{patch}` (e.g. `v1.18.0-rail.1`).
+Release tags use the format `v{stable_version}-rail.{patch}` (e.g. `v1.16.1-rail.1`).
+
+`upstream/main` is development-only and is often ahead of stable (e.g. Cargo.toml `1.18.0` while stable is `1.16.1`). ZedRail follows stable so binaries match what zed.dev ships.
 
 ## Activity bar settings
 
@@ -38,13 +40,19 @@ Example:
 
 ## Upstream sync
 
-The `sync-upstream.yml` workflow checks for new Zed stable releases every 6 hours. When a new release is detected:
+The `sync-upstream.yml` workflow polls [zed-industries/zed releases](https://github.com/zed-industries/zed/releases) every 6 hours (and supports manual dispatch). When a new **stable** release is published:
 
-1. `upstream/main` is merged into `main`
-2. `zedrail` is rebased onto `main`
-3. A new release tag is created and the release workflow runs
+1. `main` is reset to that release tag (via `gh release list`, not `upstream/main`)
+2. `.zedrail/upstream-stable` is updated with the version number
+3. `main` is merged into `zedrail`
+4. `Cargo.toml` is verified to match the stable version
+5. A new `v{stable}-rail.{patch}` tag is created and the release workflow runs
 
-If the rebase fails, a GitHub issue is opened for manual resolution.
+If `zedrail` is still based on `upstream/main` (dev), the workflow stops and asks for a one-time migration:
+
+```bash
+./script/rebase-on-stable.sh
+```
 
 ## Zed Cloud
 
