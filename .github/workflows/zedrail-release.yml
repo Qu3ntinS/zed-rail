@@ -4,11 +4,23 @@ on:
   push:
     tags:
       - "v*-rail*"
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v1.16.1-rail.4)"
+        required: true
+        type: string
 
 permissions:
   contents: write
 
 env:
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: "1"
 
@@ -20,6 +32,8 @@ jobs:
       CXX: clang++-18
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
       - name: Install dependencies
         run: |
           ./script/linux
@@ -44,6 +58,8 @@ jobs:
       CXX: clang++-18
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
       - name: Install dependencies
         run: ./script/linux
       - name: Bundle Linux
@@ -64,6 +80,8 @@ jobs:
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
       - uses: dtolnay/rust-toolchain@stable
       - name: Bundle Windows
         shell: pwsh
@@ -84,6 +102,8 @@ jobs:
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
       - uses: dtolnay/rust-toolchain@stable
       - name: Bundle macOS (unsigned)
         run: ./script/bundle-mac
@@ -108,6 +128,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -116,16 +138,12 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ env.RELEASE_TAG }}
         run: |
           set -euo pipefail
           find artifacts -type f | sort
 
-          args=(
-            "${{ github.ref_name }}"
-            --title "ZedRail ${{ github.ref_name }}"
-            --notes "Install on Linux: \`curl -f https://raw.githubusercontent.com/${{ github.repository }}/zedrail/script/install-zedrail.sh | sh\`"
-          )
-
+          assets=()
           required=(
             zedrail-linux-x86_64.tar.gz
             zedrail-remote-server-linux-x86_64.gz
@@ -138,14 +156,21 @@ jobs:
               echo "Missing required asset: $asset"
               exit 1
             fi
-            args+=("$path")
+            assets+=("$path")
           done
 
           for optional in ZedRail-x86_64.exe ZedRail-aarch64.dmg; do
             path="$(find artifacts -type f -name "$optional" | head -1)"
             if [ -n "$path" ]; then
-              args+=("$path")
+              assets+=("$path")
             fi
           done
 
-          gh release create "${args[@]}"
+          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            gh release upload "${RELEASE_TAG}" "${assets[@]}" --clobber
+          else
+            gh release create "${RELEASE_TAG}" \
+              --title "ZedRail ${RELEASE_TAG}" \
+              --notes "Install on Linux: \`curl -f https://raw.githubusercontent.com/${{ github.repository }}/zedrail/script/install-zedrail.sh | sh\`" \
+              "${assets[@]}"
+          fi
