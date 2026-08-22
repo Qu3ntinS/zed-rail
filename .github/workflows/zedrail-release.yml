@@ -78,6 +78,7 @@ jobs:
   build_windows:
     runs-on: windows-latest
     continue-on-error: true
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
         with:
@@ -100,6 +101,7 @@ jobs:
   build_macos:
     runs-on: macos-15
     continue-on-error: true
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
         with:
@@ -120,9 +122,8 @@ jobs:
           path: staging/*
 
   publish:
-    needs: [build_linux_x64, build_linux_arm, build_windows, build_macos]
+    needs: [build_linux_x64, build_linux_arm]
     if: >-
-      always() &&
       needs.build_linux_x64.result == 'success' &&
       needs.build_linux_arm.result == 'success'
     runs-on: ubuntu-latest
