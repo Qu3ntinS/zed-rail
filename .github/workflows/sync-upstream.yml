@@ -26,7 +26,7 @@ jobs:
         run: |
           git remote add upstream https://github.com/zed-industries/zed.git || true
           git fetch origin main zedrail --tags
-          git fetch upstream --tags
+          git fetch upstream --tags --force 2>/dev/null || git fetch upstream --tags
 
       - name: Resolve latest stable release
         id: stable
@@ -57,10 +57,12 @@ jobs:
           main_sha=$(git rev-parse origin/main)
           zedrail_sha=$(git rev-parse origin/zedrail)
           cargo_version=$(git show "origin/zedrail:crates/zed/Cargo.toml" | awk -F'"' '/^version = / { print $2; exit }')
+          tracked_version=$(git show "origin/main:.zedrail/upstream-stable" 2>/dev/null | tr -d '[:space:]' || true)
 
-          if [[ "${main_sha}" == "${STABLE_SHA}" ]] && \
-             git merge-base --is-ancestor "${STABLE_SHA}" "${zedrail_sha}" && \
-             [[ "${cargo_version}" == "${STABLE_VERSION}" ]]; then
+          if git merge-base --is-ancestor "${STABLE_SHA}" "${main_sha}" && \
+             git merge-base --is-ancestor "${main_sha}" "${zedrail_sha}" && \
+             [[ "${cargo_version}" == "${STABLE_VERSION}" ]] && \
+             [[ "${tracked_version}" == "${STABLE_VERSION}" ]]; then
             echo "needs_sync=false" >> "$GITHUB_OUTPUT"
             echo "Already synced to ${STABLE_TAG} (Cargo.toml ${cargo_version})"
             exit 0
@@ -84,7 +86,14 @@ jobs:
           STABLE_TAG: ${{ steps.stable.outputs.tag }}
         run: |
           main_sha=$(git rev-parse origin/main)
-          git checkout -B main "${STABLE_SHA}"
+          git checkout -B main origin/main
+          tracked_version=$(cat .zedrail/upstream-stable 2>/dev/null | tr -d '[:space:]' || true)
+          if git merge-base --is-ancestor "${STABLE_SHA}" "$(git rev-parse HEAD)" && \
+             [[ "${tracked_version}" == "${STABLE_TAG#v}" ]]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git reset --hard "${STABLE_SHA}"
           mkdir -p .zedrail
           echo "${STABLE_TAG#v}" > .zedrail/upstream-stable
           git add .zedrail/upstream-stable
@@ -103,6 +112,11 @@ jobs:
         run: |
           git checkout -B zedrail origin/zedrail
           before=$(git rev-parse HEAD)
+          if git merge-base --is-ancestor main "$(git rev-parse HEAD)"; then
+            echo "merge_failed=false" >> "$GITHUB_OUTPUT"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if ! git merge main --no-edit -m "Merge upstream stable ${STABLE_TAG} into zedrail"; then
             git merge --abort
             echo "merge_failed=true" >> "$GITHUB_OUTPUT"
