@@ -1,49 +1,81 @@
-# Zed
+# ZedRail
 
-[![Zed](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/zed-industries/zed/main/assets/badge/v0.json)](https://zed.dev)
-[![CI](https://github.com/zed-industries/zed/actions/workflows/run_tests.yml/badge.svg)](https://github.com/zed-industries/zed/actions/workflows/run_tests.yml)
+**Zed with an Activity Bar** — a community fork of [Zed](https://github.com/zed-industries/zed).
 
-Welcome to Zed, a high-performance, multiplayer code editor from the creators of [Atom](https://github.com/atom/atom) and [Tree-sitter](https://github.com/tree-sitter/tree-sitter).
+> Not affiliated with Zed Industries. Zed Cloud services (Collab, AI, accounts) are provided by [zed.dev](https://zed.dev).
 
----
+ZedRail adds an optional VS Code-style vertical activity bar for panel buttons, while tracking upstream Zed stable releases.
 
-### Installation
+## Features
 
-On macOS, Linux, and Windows you can [download Zed directly](https://zed.dev/download) or install Zed via your local package manager ([macOS](https://zed.dev/docs/installation#macos)/[Linux](https://zed.dev/docs/linux#installing-via-a-package-manager)/[Windows](https://zed.dev/docs/windows#package-managers)).
+- **Activity Bar** — vertical panel rail (disabled by default; enable in settings)
+- **Upstream sync** — rebased on Zed stable releases
+- **Auto-update** — via GitHub Releases
+- **Side-by-side install** — separate config directory (`~/.config/zedrail/`)
 
-Other platforms are not yet available:
+## Download
 
-- Web ([tracking discussion](https://github.com/zed-industries/zed/discussions/26195))
+Releases are published on the [GitHub Releases](https://github.com/Qu3ntinS/zed-rail/releases) page:
 
-### Developing Zed
+| Platform | Asset |
+|----------|-------|
+| Linux x86_64 | `zedrail-linux-x86_64.tar.gz` |
+| Linux aarch64 | `zedrail-linux-aarch64.tar.gz` |
+| Windows x86_64 | `ZedRail-x86_64.exe` |
+| macOS (unsigned) | `ZedRail-aarch64.dmg` |
 
-- [Building Zed for macOS](./docs/src/development/macos.md)
-- [Building Zed for Linux](./docs/src/development/linux.md)
-- [Building Zed for Windows](./docs/src/development/windows.md)
+### Linux install
 
-### Contributing
+Extract the tarball to `~/.local`:
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for ways you can contribute to Zed.
+```sh
+tar -xzf zedrail-linux-x86_64.tar.gz -C ~/.local
+```
 
-Also... we're hiring! Check out our [jobs](https://zed.dev/jobs) page for open roles.
+Run via `~/.local/zedrail.app/bin/zedrail` or the `.desktop` entry.
 
-### Licensing
+### macOS (unsigned)
 
-Zed source code is licensed primarily under GPL-3.0-or-later, with Apache-2.0 components where marked.
+macOS builds are unsigned in v1. After opening the DMG, run:
 
-License information for third party dependencies must be correctly provided for CI to pass.
+```sh
+xattr -cr /Applications/ZedRail.app
+```
 
-We use [`cargo-about`](https://github.com/EmbarkStudios/cargo-about) to automatically comply with open source licenses. If CI is failing, check the following:
+Then open ZedRail via right-click → Open.
 
-- Is it showing a `no license specified` error for a crate you've created? If so, add `publish = false` under `[package]` in your crate's Cargo.toml.
-- Is the error `failed to satisfy license requirements` for a dependency? If so, first determine what license the project has and whether this system is sufficient to comply with this license's requirements. If you're unsure, ask a lawyer. Once you've verified that this system is acceptable add the license's SPDX identifier to the `accepted` array in `script/licenses/zed-licenses.toml`.
-- Is `cargo-about` unable to find the license for a dependency? If so, add a clarification field at the end of `script/licenses/zed-licenses.toml`, as specified in the [cargo-about book](https://embarkstudios.github.io/cargo-about/cli/generate/config.html#crate-configuration).
+## Enable the Activity Bar
 
-## Sponsorship
+Open the Settings Editor and search for `activity_bar`, or add to `~/.config/zedrail/settings.json`:
 
-Zed is developed by **Zed Industries, Inc.**, a for-profit company.
+```json
+{
+  "activity_bar": {
+    "enabled": true
+  }
+}
+```
 
-If you’d like to financially support the project, you can do so via GitHub Sponsors.
-Sponsorships go directly to Zed Industries and are used as general company revenue.
-There are no perks or entitlements associated with sponsorship.
+See [docs/FORK.md](docs/FORK.md) for all activity bar settings.
 
+## Building from source
+
+See upstream Zed development docs:
+
+- [Linux](docs/src/development/linux.md)
+- [macOS](docs/src/development/macos.md)
+- [Windows](docs/src/development/windows.md)
+
+```sh
+cargo run -p zed
+```
+
+## Contributing
+
+ZedRail-specific changes (activity bar, fork branding, release infra) belong here. Fixes that benefit all Zed users should go to [zed-industries/zed](https://github.com/zed-industries/zed).
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/FORK.md](docs/FORK.md).
+
+## Licensing
+
+Same as upstream Zed: primarily GPL-3.0-or-later, with Apache-2.0 components where marked.

@@ -1,0 +1,53 @@
+name: Bug Report
+description: Report a ZedRail-specific bug
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. If the issue exists in upstream Zed too, please report it at [zed-industries/zed](https://github.com/zed-industries/zed/issues).
+
+  - type: input
+    id: version
+    attributes:
+      label: ZedRail version
+      description: Help → About ZedRail, or release tag
+      placeholder: "v1.18.0-rail.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Linux
+        - macOS
+        - Windows
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Enable activity bar
+        2. ...
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: activity_bar
+    attributes:
+      label: Activity bar
+      options:
+        - label: Activity bar was enabled when this occurred
+        - label: Issue also occurs with activity bar disabled

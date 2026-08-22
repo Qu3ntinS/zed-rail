@@ -189,6 +189,53 @@ pub struct ReleaseAsset {
     pub url: String,
 }
 
+fn zedrail_release_asset_name(asset: &str, os: &str, arch: &str) -> Result<String> {
+    Ok(match (asset, os, arch) {
+        ("zed", "linux", "x86_64") => "zedrail-linux-x86_64.tar.gz".to_string(),
+        ("zed", "linux", "aarch64") => "zedrail-linux-aarch64.tar.gz".to_string(),
+        ("zed", "macos", "aarch64") => "ZedRail-aarch64.dmg".to_string(),
+        ("zed", "macos", "x86_64") => "ZedRail-x86_64.dmg".to_string(),
+        ("zed", "windows", "x86_64") => "ZedRail-x86_64.exe".to_string(),
+        ("zed-remote-server", "linux", arch) => format!("zedrail-remote-server-linux-{arch}.gz"),
+        _ => anyhow::bail!("unsupported ZedRail release asset for {asset} on {os}/{arch}"),
+    })
+}
+
+async fn get_github_release_asset(
+    repo: &str,
+    version: Option<Version>,
+    asset: &str,
+    os: &str,
+    arch: &str,
+    http_client: Arc<http_client::HttpClientWithUrl>,
+) -> Result<ReleaseAsset> {
+    let http: Arc<dyn http_client::HttpClient> = http_client;
+
+    let release = if let Some(version) = version {
+        let tag = format!("v{version}");
+        http_client::github::get_release_by_tag_name(repo, &tag, http.clone()).await?
+    } else {
+        http_client::github::latest_github_release(repo, true, false, http).await?
+    };
+
+    let asset_name = zedrail_release_asset_name(asset, os, arch)?;
+    let release_asset = release
+        .assets
+        .iter()
+        .find(|candidate| candidate.name == asset_name)
+        .with_context(|| {
+            format!(
+                "asset {asset_name} not found in GitHub release {}",
+                release.tag_name
+            )
+        })?;
+
+    Ok(ReleaseAsset {
+        version: release.tag_name.trim_start_matches('v').to_string(),
+        url: release_asset.browser_download_url.clone(),
+    })
+}
+
 struct MacOsUnmounter<'a> {
     mount_path: PathBuf,
     background_executor: &'a BackgroundExecutor,
@@ -340,19 +387,42 @@ pub fn release_notes_url(cx: &mut App) -> Option<String> {
     let release_channel = ReleaseChannel::try_global(cx)?;
     let url = match release_channel {
         ReleaseChannel::Stable | ReleaseChannel::Preview => {
-            let auto_updater = AutoUpdater::get(cx)?;
-            let auto_updater = auto_updater.read(cx);
-            let mut current_version = auto_updater.current_version.clone();
-            current_version.pre = semver::Prerelease::EMPTY;
-            current_version.build = semver::BuildMetadata::EMPTY;
-            let release_channel = release_channel.dev_name();
-            let path = format!("/releases/{release_channel}/{current_version}");
-            auto_updater.client.http_client().build_url(&path)
+            if paths::APP_NAME == "ZedRail" {
+                format!(
+                    "https://github.com/{}/releases/latest",
+                    paths::GITHUB_RELEASES_REPO
+                )
+            } else {
+                let auto_updater = AutoUpdater::get(cx)?;
+                let auto_updater = auto_updater.read(cx);
+                let mut current_version = auto_updater.current_version.clone();
+                current_version.pre = semver::Prerelease::EMPTY;
+                current_version.build = semver::BuildMetadata::EMPTY;
+                let release_channel = release_channel.dev_name();
+                let path = format!("/releases/{release_channel}/{current_version}");
+                auto_updater.client.http_client().build_url(&path)
+            }
         }
         ReleaseChannel::Nightly => {
-            "https://github.com/zed-industries/zed/commits/nightly/".to_string()
+            if paths::APP_NAME == "ZedRail" {
+                format!(
+                    "https://github.com/{}/releases",
+                    paths::GITHUB_RELEASES_REPO
+                )
+            } else {
+                "https://github.com/zed-industries/zed/commits/nightly/".to_string()
+            }
         }
-        ReleaseChannel::Dev => "https://github.com/zed-industries/zed/commits/main/".to_string(),
+        ReleaseChannel::Dev => {
+            if paths::APP_NAME == "ZedRail" {
+                format!(
+                    "https://github.com/{}/commits/zedrail",
+                    paths::GITHUB_RELEASES_REPO
+                )
+            } else {
+                "https://github.com/zed-industries/zed/commits/main/".to_string()
+            }
+        }
     };
     Some(url)
 }
@@ -648,6 +718,20 @@ impl AutoUpdater {
         arch: &str,
         cx: &mut AsyncApp,
     ) -> Result<ReleaseAsset> {
+        if paths::APP_NAME == "ZedRail" {
+            let client = this.read_with(cx, |this, _| this.client.clone());
+            let http_client = client.http_client();
+            return get_github_release_asset(
+                paths::GITHUB_RELEASES_REPO,
+                version,
+                asset,
+                os,
+                arch,
+                http_client,
+            )
+            .await;
+        }
+
         let client = this.read_with(cx, |this, _| this.client.clone());
 
         let (system_id, metrics_id, is_staff) = if client.telemetry().metrics_enabled() {
@@ -1123,12 +1207,20 @@ async fn install_release_linux(
     } else {
         String::default()
     };
-    let app_folder_name = format!("zed{}.app", suffix);
+    let app_folder_name = if paths::APP_NAME == "ZedRail" {
+        format!("zedrail{}.app", suffix)
+    } else {
+        format!("zed{}.app", suffix)
+    };
 
     let from = extracted.join(&app_folder_name);
     let mut to = home_dir.join(".local");
 
-    let expected_suffix = format!("{}/libexec/zed-editor", app_folder_name);
+    let expected_suffix = if paths::APP_NAME == "ZedRail" {
+        format!("{}/libexec/zedrail-editor", app_folder_name)
+    } else {
+        format!("{}/libexec/zed-editor", app_folder_name)
+    };
 
     if let Some(prefix) = running_app_path
         .to_str()

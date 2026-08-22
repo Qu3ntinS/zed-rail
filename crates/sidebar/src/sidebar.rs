@@ -6572,19 +6572,11 @@ impl Sidebar {
             })
             .trigger_with_tooltip(
                 configure_status_bar_icon_button(
-                    IconButton::new("open-project", IconName::OpenFolder),
+                    IconButton::new("open-project", IconName::FolderAdd),
                     icon_size,
                 )
                 .selected_style(ButtonStyle::Tinted(TintColor::Accent)),
-                |_window, cx| {
-                    Tooltip::for_action(
-                        "Add Project",
-                        &OpenRecent {
-                            create_new_window: false,
-                        },
-                        cx,
-                    )
-                },
+                |_window, cx| Tooltip::for_action("Add Project", &OpenRecent::default(), cx),
             )
             .offset(gpui::Point {
                 x: px(-2.0),
