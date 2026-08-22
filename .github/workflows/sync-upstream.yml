@@ -11,6 +11,8 @@ permissions:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    outputs:
+      created_tag: ${{ steps.push_release.outputs.created_tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -150,6 +152,7 @@ jobs:
           fi
 
       - name: Push branches and tag release
+        id: push_release
         if: >-
           steps.check.outputs.needs_sync == 'true' &&
           steps.merge_zedrail.outputs.merge_failed != 'true' &&
@@ -174,4 +177,14 @@ jobs:
           git push origin zedrail
           git tag "${tag}"
           git push origin "${tag}"
+          echo "created_tag=${tag}" >> "$GITHUB_OUTPUT"
           echo "Created tag ${tag}"
+
+  release:
+    needs: sync
+    if: needs.sync.outputs.created_tag != ''
+    permissions:
+      contents: write
+    uses: ./.github/workflows/zedrail-release.yml
+    with:
+      tag: ${{ needs.sync.outputs.created_tag }}
