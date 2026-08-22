@@ -17,17 +17,17 @@ jobs:
         with:
           ref: zedrail
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Add upstream remote
+      - name: Fetch remotes
         run: |
           git remote add upstream https://github.com/zed-industries/zed.git || true
-          git fetch upstream --tags
+          git fetch origin main zedrail --tags
+          git fetch upstream main --tags
 
       - name: Check for new upstream stable release
         id: check
@@ -56,7 +56,7 @@ jobs:
       - name: Merge upstream into main
         if: steps.check.outputs.needs_sync == 'true'
         run: |
-          git checkout main
+          git checkout -B main origin/main
           git merge upstream/main --no-edit -m "Sync upstream ${UPSTREAM_TAG}"
         env:
           UPSTREAM_TAG: ${{ steps.check.outputs.latest_upstream }}
@@ -65,7 +65,7 @@ jobs:
         if: steps.check.outputs.needs_sync == 'true'
         id: rebase
         run: |
-          git checkout zedrail
+          git checkout -B zedrail origin/zedrail
           if ! git rebase main; then
             echo "rebase_failed=true" >> "$GITHUB_OUTPUT"
             git rebase --abort
