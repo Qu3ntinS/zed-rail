@@ -87,6 +87,7 @@ jobs:
         if: steps.check.outputs.needs_sync == 'true' && steps.rebase.outputs.rebase_failed == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
+          UPSTREAM_TAG: ${{ steps.check.outputs.latest_upstream }}
         run: |
           upstream_version="${UPSTREAM_TAG#v}"
           tag="v${upstream_version}-rail.1"
@@ -94,5 +95,3 @@ jobs:
           git push origin zedrail --force-with-lease
           git tag "${tag}"
           git push origin "${tag}"
-        env:
-          UPSTREAM_TAG: ${{ steps.check.outputs.latest_upstream }}
