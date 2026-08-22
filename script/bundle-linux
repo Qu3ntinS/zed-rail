@@ -143,7 +143,7 @@ if ! "$skip_sentry"; then
     for attempt in 1 2 3; do
         echo "Attempting sentry upload (attempt $attempt/3)..."
         if sentry-cli debug-files upload --include-sources --wait -p zed -o zed-dev \
-            "${target_dir}/${target_triple}"/release/zed \
+            "${target_dir}/${target_triple}"/release/zedrail \
             "${target_dir}/${remote_server_triple}"/release/remote_server; then
             echo "Sentry upload successful on attempt $attempt"
             break
@@ -162,7 +162,7 @@ fi
 # is skipped.
 # We use llvm-objcopy because GNU objcopy on older distros (e.g. Ubuntu 20.04)
 # doesn't understand CREL sections produced by newer LLVM.
-llvm-objcopy --only-keep-debug "${target_dir}/${target_triple}/release/zed" "${target_dir}/${target_triple}/release/zed.dbg"
+llvm-objcopy --only-keep-debug "${target_dir}/${target_triple}/release/zedrail" "${target_dir}/${target_triple}/release/zedrail.dbg"
 llvm-objcopy --only-keep-debug "${target_dir}/${remote_server_triple}/release/remote_server" "${target_dir}/${remote_server_triple}/release/remote_server.dbg"
 
 # Ensure that remote_server does not depend on libssl nor libcrypto, as we got rid of these deps.
@@ -183,13 +183,13 @@ fi
 # into a temp directory.
 temp_dir=$(mktemp -d)
 trap 'rm -rf "$temp_dir"' EXIT
-zed_dir="${temp_dir}/zed$suffix.app"
+zed_dir="${temp_dir}/zedrail${suffix}.app"
 
 # Cargo may reuse its outputs on the next invocation. Strip packaging copies
 # so reruns still upload full ELFs and extract complete debug companions.
 mkdir -p "${zed_dir}/bin" "${zed_dir}/libexec"
-llvm-objcopy --strip-unneeded "${target_dir}/${target_triple}/release/zed" "${zed_dir}/libexec/zed-editor"
-llvm-objcopy --strip-debug --discard-all "${target_dir}/${target_triple}/release/cli" "${zed_dir}/bin/zed"
+llvm-objcopy --strip-unneeded "${target_dir}/${target_triple}/release/zedrail" "${zed_dir}/libexec/zedrail-editor"
+llvm-objcopy --strip-debug --discard-all "${target_dir}/${target_triple}/release/cli" "${zed_dir}/bin/zedrail"
 llvm-objcopy --strip-debug --discard-all "${target_dir}/${remote_server_triple}/release/remote_server" "${temp_dir}/remote_server"
 
 # Libs
@@ -200,7 +200,7 @@ llvm-objcopy --strip-debug --discard-all "${target_dir}/${remote_server_triple}/
 # get dlopen'd are built against the system GLib, and resolving them against an
 # older bundled copy fails with missing symbols.
 find_libs() {
-    ldd ${target_dir}/${target_triple}/release/zed |\
+    ldd ${target_dir}/${target_triple}/release/zedrail |\
         cut -d' ' -f3 |\
         grep -v '\<\(libc.so\|libgcc_s.so\|libm.so\|libpthread.so\|libdl.so\|libasound.so\)' |\
         grep -v '\<\(libglib-2.0.so\|libgobject-2.0.so\|libgio-2.0.so\|libgmodule-2.0.so\|libpcre.so\|libpcre2-8.so\|libmount.so\|libblkid.so\|libselinux.so\|libffi.so\|libresolv.so\|libz.so\)'
@@ -212,27 +212,27 @@ cp $(find_libs) "${zed_dir}/lib"
 
 # Icons
 mkdir -p "${zed_dir}/share/icons/hicolor/512x512/apps"
-cp "crates/zed/resources/app-icon$suffix.png" "${zed_dir}/share/icons/hicolor/512x512/apps/zed.png"
+cp "crates/zed/resources/app-icon$suffix.png" "${zed_dir}/share/icons/hicolor/512x512/apps/zedrail.png"
 mkdir -p "${zed_dir}/share/icons/hicolor/1024x1024/apps"
-cp "crates/zed/resources/app-icon$suffix@2x.png" "${zed_dir}/share/icons/hicolor/1024x1024/apps/zed.png"
+cp "crates/zed/resources/app-icon$suffix@2x.png" "${zed_dir}/share/icons/hicolor/1024x1024/apps/zedrail.png"
 
 # .desktop
 export DO_STARTUP_NOTIFY="true"
-export APP_CLI="zed"
-export APP_ICON="zed"
+export APP_CLI="zedrail"
+export APP_ICON="zedrail"
 export APP_ARGS="%U"
 if [[ "$channel" == "preview" ]]; then
-  export APP_NAME="Zed Preview"
-  APP_ID="dev.zed.Zed-Preview"
+  export APP_NAME="ZedRail Preview"
+  APP_ID="dev.zedrail.ZedRail-Preview"
 elif [[ "$channel" == "nightly" ]]; then
-  export APP_NAME="Zed Nightly"
-  APP_ID="dev.zed.Zed-Nightly"
+  export APP_NAME="ZedRail Nightly"
+  APP_ID="dev.zedrail.ZedRail-Nightly"
 elif [[ "$channel" == "dev" ]]; then
-  export APP_NAME="Zed Devel"
-  APP_ID="dev.zed.Zed-Dev"
+  export APP_NAME="ZedRail Dev"
+  APP_ID="dev.zedrail.ZedRail-Dev"
 else
-  export APP_NAME="Zed"
-  APP_ID="dev.zed.Zed"
+  export APP_NAME="ZedRail"
+  APP_ID="dev.zedrail.ZedRail"
 fi
 
 mkdir -p "${zed_dir}/share/applications"
@@ -244,11 +244,11 @@ cp "assets/licenses.md" "${zed_dir}/licenses.md"
 
 # Create archive out of everything that's in the temp directory
 arch=$(uname -m)
-archive="zed-linux-${arch}.tar.gz"
+archive="zedrail-linux-${arch}.tar.gz"
 
 rm -rf "${archive}"
-remove_match="zed(-[a-zA-Z0-9]+)?-linux-$(uname -m)\.tar\.gz"
+remove_match="zedrail(-[a-zA-Z0-9]+)?-linux-$(uname -m)\.tar\.gz"
 ls "${target_dir}/release" | grep -E ${remove_match} | xargs -d "\n" -I {} rm -f "${target_dir}/release/{}" || true
-tar -czvf "${target_dir}/release/$archive" -C ${temp_dir} "zed$suffix.app"
+tar -czvf "${target_dir}/release/$archive" -C ${temp_dir} "zedrail${suffix}.app"
 
-gzip -f --stdout --best "${temp_dir}/remote_server" > "${target_dir}/zed-remote-server-linux-${arch}.gz"
+gzip -f --stdout --best "${temp_dir}/remote_server" > "${target_dir}/zedrail-remote-server-linux-${arch}.gz"
