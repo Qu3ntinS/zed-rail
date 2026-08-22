@@ -31,9 +31,23 @@ Requires `python3`, `Pillow`, `rsvg-convert` (librsvg), and `magick` (ImageMagic
 
 ## GitHub Social preview
 
-Upload `zedrail-social-preview.png` (or `.jpg` if PNG fails) under **Settings → General → Social preview → Edit** (1280×640 recommended).
+GitHub has **no public API** for this. Manual uploads often fail silently: Settings show a dark box while the CDN URL returns **404**.
 
-After saving, open the `og:image` URL from the repo page source — it must return HTTP 200, not 404. If the settings preview stays empty, click **Remove image**, re-upload, and **Save changes** again.
+**Recommended upload** (waits for GitHub's S3 PUT and verifies CDN):
+
+```bash
+pip install playwright
+playwright install chromium
+python3 script/upload-github-social-preview.py --login   # once
+python3 script/upload-github-social-preview.py
+```
+
+**Manual fallback:** Settings → General → Social preview → **Remove image** → **Edit** → upload `zedrail-social-preview.jpg` → wait until the thumbnail appears → leave the tab open for ~10 seconds.
+
+Image files (1280×640, under 1 MB):
+
+- `zedrail-social-preview.jpg` (preferred for upload)
+- `zedrail-social-preview.png`
 
 ## Trademark
 
