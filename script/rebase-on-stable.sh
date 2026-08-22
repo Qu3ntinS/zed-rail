@@ -19,8 +19,8 @@ if [[ -z "${STABLE_TAG}" ]]; then
 fi
 
 git remote add upstream https://github.com/zed-industries/zed.git 2>/dev/null || true
-git fetch upstream --tags
-git fetch origin zedrail main 2>/dev/null || true
+git fetch upstream tag "${STABLE_TAG}" 2>/dev/null || git fetch upstream --tags --force 2>/dev/null || git fetch upstream
+git fetch origin zedrail main 2>/dev/null || git fetch zed-rail zedrail main 2>/dev/null || true
 
 STABLE_SHA=$(git rev-parse "refs/tags/${STABLE_TAG}^{commit}")
 STABLE_VERSION="${STABLE_TAG#v}"
@@ -28,7 +28,8 @@ STABLE_VERSION="${STABLE_TAG#v}"
 echo "Rebasing ZedRail onto ${STABLE_TAG} (${STABLE_SHA})"
 
 mapfile -t COMMITS < <(
-  git log --reverse --no-merges origin/zedrail --not upstream/main --format=%H 2>/dev/null \
+  git log --reverse --no-merges zed-rail/zedrail --not upstream/main --format=%H 2>/dev/null \
+    || git log --reverse --no-merges origin/zedrail --not upstream/main --format=%H 2>/dev/null \
     || git log --reverse --no-merges zedrail --not upstream/main --format=%H
 )
 
