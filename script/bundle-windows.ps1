@@ -132,7 +132,19 @@ function BuildZedAndItsFriends {
     Write-Output "Building Zed and its friends, for channel: $channel"
     # Build zed.exe, cli.exe and auto_update_helper.exe
     cargo build --release --package zed --package cli --package auto_update_helper --target $target
-    Copy-Item -Path ".\$CargoOutDir\zed.exe" -Destination "$innoDir\Zed.exe" -Force
+    $editorSource = if (Test-Path ".\$CargoOutDir\zedrail.exe") {
+        ".\$CargoOutDir\zedrail.exe"
+    } elseif (Test-Path ".\$CargoOutDir\zed.exe") {
+        ".\$CargoOutDir\zed.exe"
+    } else {
+        throw "Could not find editor binary in $CargoOutDir"
+    }
+    $editorDestination = if ($editorSource -like "*\zedrail.exe") {
+        "$innoDir\ZedRail.exe"
+    } else {
+        "$innoDir\Zed.exe"
+    }
+    Copy-Item -Path $editorSource -Destination $editorDestination -Force
     Copy-Item -Path ".\$CargoOutDir\cli.exe" -Destination "$innoDir\cli.exe" -Force
     Copy-Item -Path ".\$CargoOutDir\auto_update_helper.exe" -Destination "$innoDir\auto_update_helper.exe" -Force
     # Build explorer_command_injector.dll
@@ -233,7 +245,8 @@ function SignZedAndItsFriends {
         return
     }
 
-    $files = "$innoDir\Zed.exe,$innoDir\cli.exe,$innoDir\auto_update_helper.exe,$innoDir\zed_explorer_command_injector.dll,$innoDir\zed_explorer_command_injector.appx"
+    $editorExe = if (Test-Path "$innoDir\ZedRail.exe") { "ZedRail.exe" } else { "Zed.exe" }
+    $files = "$innoDir\$editorExe,$innoDir\cli.exe,$innoDir\auto_update_helper.exe,$innoDir\zed_explorer_command_injector.dll,$innoDir\zed_explorer_command_injector.appx"
     & "$innoDir\sign.ps1" $files
 }
 
