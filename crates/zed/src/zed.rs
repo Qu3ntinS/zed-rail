@@ -58,7 +58,7 @@ pub use open_listener::*;
 use outline_panel::OutlinePanel;
 use paths::{
     local_debug_file_relative_path, local_settings_file_relative_path,
-    local_tasks_file_relative_path,
+    local_tasks_file_relative_path, APP_NAME,
 };
 use project::{
     DirectoryLister, DisableAiSettings, ProjectItem,
@@ -1544,6 +1544,7 @@ fn open_about_window(cx: &mut App) {
         copy_entry: NavigableEntry,
         app_icon: Arc<Image>,
         message: SharedString,
+        fork_notice: Option<SharedString>,
         commit: Option<SharedString>,
         full_version: SharedString,
     }
@@ -1561,6 +1562,15 @@ fn open_about_window(cx: &mut App) {
                 ""
             };
             let message: SharedString = format!("{release_channel_name} {version} {debug}").into();
+            let fork_notice: Option<SharedString> = if APP_NAME == "ZedRail" {
+                Some(
+                    "Based on Zed. Not affiliated with Zed Industries. \
+                     Cloud services provided by zed.dev."
+                        .into(),
+                )
+            } else {
+                None
+            };
             let commit = AppCommitSha::try_global(cx)
                 .map(|sha| sha.full())
                 .filter(|commit| !commit.is_empty())
@@ -1572,6 +1582,7 @@ fn open_about_window(cx: &mut App) {
                 copy_entry: NavigableEntry::focusable(cx),
                 app_icon: about_window_icon(release_channel),
                 message,
+                fork_notice,
                 commit,
                 full_version,
             }
@@ -1620,6 +1631,13 @@ fn open_about_window(cx: &mut App) {
                             .items_center()
                             .child(img(self.app_icon.clone()).size_16().flex_none())
                             .child(Headline::new(self.message.clone()))
+                            .when_some(self.fork_notice.clone(), |this, notice| {
+                                this.child(
+                                    Label::new(notice)
+                                        .color(Color::Muted)
+                                        .size(LabelSize::Small),
+                                )
+                            })
                             .when_some(self.commit.clone(), |this, commit| {
                                 this.child(
                                     Label::new("Commit")
