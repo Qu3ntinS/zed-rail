@@ -2,6 +2,14 @@
   <img src="crates/zed/resources/brand/zedrail-social-preview.png" alt="ZedRail — Zed with an Activity Bar" width="100%">
 </p>
 
+<p align="center">
+  <a href="https://qu3ntins.github.io/zedrail-website/"><strong>Website</strong></a>
+  ·
+  <a href="https://github.com/Qu3ntinS/zed-rail/releases"><strong>Download</strong></a>
+  ·
+  <a href="https://qu3ntins.github.io/zedrail-website/docs/"><strong>Docs</strong></a>
+</p>
+
 # ZedRail
 
 **Zed with an Activity Bar** — a community fork of [Zed](https://github.com/zed-industries/zed).
