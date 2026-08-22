@@ -28,67 +28,97 @@ jobs:
           git fetch origin main zedrail --tags
           git fetch upstream main --tags
 
-      - name: Check for new upstream stable release
+      - name: Check if sync is needed
         id: check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          upstream_sha=$(git rev-parse upstream/main)
+          main_sha=$(git rev-parse origin/main)
+          zedrail_sha=$(git rev-parse origin/zedrail)
+
+          if git merge-base --is-ancestor "${upstream_sha}" "${main_sha}" && \
+             git merge-base --is-ancestor "${main_sha}" "${zedrail_sha}"; then
+            echo "needs_sync=false" >> "$GITHUB_OUTPUT"
+            echo "Already synced: upstream/main is contained in main and zedrail"
+            exit 0
+          fi
+
           latest_upstream=$(gh release list --repo zed-industries/zed --limit 20 \
             --json tagName,isPrerelease \
             --jq '[.[] | select(.isPrerelease == false)] | first | .tagName')
           echo "latest_upstream=${latest_upstream}" >> "$GITHUB_OUTPUT"
-
-          latest_zedrail=$(gh release list --repo "${{ github.repository }}" --limit 1 \
-            --json tagName --jq '.[0].tagName // ""')
-          echo "latest_zedrail=${latest_zedrail}" >> "$GITHUB_OUTPUT"
-
-          upstream_version="${latest_upstream#v}"
-          if [[ "${latest_zedrail}" == "v${upstream_version}-rail."* ]] || \
-             [[ "${latest_zedrail}" == "v${upstream_version}-rail" ]]; then
-            echo "needs_sync=false" >> "$GITHUB_OUTPUT"
-            echo "Already synced to ${latest_upstream}"
-          else
-            echo "needs_sync=true" >> "$GITHUB_OUTPUT"
-            echo "New upstream release: ${latest_upstream}"
-          fi
+          echo "needs_sync=true" >> "$GITHUB_OUTPUT"
+          echo "Sync required (main or zedrail behind upstream/main)"
 
       - name: Merge upstream into main
         if: steps.check.outputs.needs_sync == 'true'
-        run: |
-          git checkout -B main origin/main
-          git merge upstream/main --no-edit -m "Sync upstream ${UPSTREAM_TAG}"
+        id: merge_main
         env:
           UPSTREAM_TAG: ${{ steps.check.outputs.latest_upstream }}
+        run: |
+          git checkout -B main origin/main
+          before=$(git rev-parse HEAD)
+          git merge upstream/main --no-edit -m "Sync upstream ${UPSTREAM_TAG}"
+          after=$(git rev-parse HEAD)
+          if [[ "${before}" == "${after}" ]]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Merge main into zedrail
         if: steps.check.outputs.needs_sync == 'true'
-        id: merge
+        id: merge_zedrail
+        env:
+          UPSTREAM_TAG: ${{ steps.check.outputs.latest_upstream }}
         run: |
           git checkout -B zedrail origin/zedrail
+          before=$(git rev-parse HEAD)
           if ! git merge main --no-edit -m "Merge upstream ${UPSTREAM_TAG} into zedrail"; then
             echo "merge_failed=true" >> "$GITHUB_OUTPUT"
             git merge --abort
-          else
-            echo "merge_failed=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
-        env:
-          UPSTREAM_TAG: ${{ steps.check.outputs.latest_upstream }}
+          after=$(git rev-parse HEAD)
+          echo "merge_failed=false" >> "$GITHUB_OUTPUT"
+          if [[ "${before}" == "${after}" ]]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Report merge failure
-        if: steps.check.outputs.needs_sync == 'true' && steps.merge.outputs.merge_failed == 'true'
+        if: steps.check.outputs.needs_sync == 'true' && steps.merge_zedrail.outputs.merge_failed == 'true'
+        env:
+          UPSTREAM_TAG: ${{ steps.check.outputs.latest_upstream }}
         run: |
           echo "::error::Upstream sync failed while merging main into zedrail for ${UPSTREAM_TAG}. Resolve conflicts locally and push."
           exit 1
 
-      - name: Tag and push release
-        if: steps.check.outputs.needs_sync == 'true' && steps.merge.outputs.merge_failed == 'false'
+      - name: Push branches and tag release
+        if: >-
+          steps.check.outputs.needs_sync == 'true' &&
+          steps.merge_zedrail.outputs.merge_failed != 'true' &&
+          (steps.merge_main.outputs.changed == 'true' || steps.merge_zedrail.outputs.changed == 'true')
         env:
-          GH_TOKEN: ${{ github.token }}
           UPSTREAM_TAG: ${{ steps.check.outputs.latest_upstream }}
         run: |
           upstream_version="${UPSTREAM_TAG#v}"
-          tag="v${upstream_version}-rail.1"
+          prefix="v${upstream_version}-rail."
+
+          max_patch=0
+          while IFS= read -r tag; do
+            [[ -z "${tag}" ]] && continue
+            patch="${tag#"${prefix}"}"
+            if [[ "${patch}" =~ ^[0-9]+$ ]] && (( patch > max_patch )); then
+              max_patch=${patch}
+            fi
+          done < <(git tag -l "${prefix}*")
+
+          tag="${prefix}$((max_patch + 1))"
           git push origin main
           git push origin zedrail
           git tag "${tag}"
           git push origin "${tag}"
+          echo "Created tag ${tag}"
