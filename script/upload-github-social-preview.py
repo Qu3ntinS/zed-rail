@@ -79,6 +79,69 @@ def verify_cdn_url(url: str) -> bool:
     return result.returncode == 0 and " 200 " in result.stdout
 
 
+def open_social_preview_menu(page) -> None:
+    edit_button = page.locator("#edit-social-preview-button")
+    if edit_button.count() == 0:
+        edit_button = page.locator(
+            "xpath=//h2[normalize-space()='Social preview']/following::*"
+            "[(self::button or self::summary) and normalize-space(.)='Edit'][1]"
+        )
+    edit_button.first.click()
+    page.locator(
+        ".js-remove-repository-image-button, label[for='repo-image-file-input'], input#repo-image-file-input"
+    ).first.wait_for(state="attached", timeout=30_000)
+
+
+def remove_existing_image(page) -> bool:
+    remove_button = page.locator(".js-remove-repository-image-button")
+    if remove_button.count() == 0:
+        return False
+
+    print("Removing broken social preview…")
+    page.once("dialog", lambda dialog: dialog.accept())
+    remove_button.first.click(force=True)
+    page.wait_for_function(
+        """() => {
+            const input = document.querySelector('input.js-repository-image-id');
+            return input && !(input.value || '').trim();
+        }""",
+        timeout=20_000,
+    )
+    page.wait_for_timeout(1000)
+    return True
+
+
+def set_social_preview_file(page, image: Path) -> None:
+    file_input = page.locator("input#repo-image-file-input")
+    upload_label = page.locator("label[for='repo-image-file-input']")
+
+    if file_input.count() == 0:
+        open_social_preview_menu(page)
+        file_input = page.locator("input#repo-image-file-input")
+
+    file_input.first.wait_for(state="attached", timeout=30_000)
+
+    print(f"Uploading {image} …")
+    with page.expect_response(
+        lambda response: (
+            response.request.method == "PUT"
+            and "/upload/repository-images/" in response.url
+            and 200 <= response.status < 300
+        ),
+        timeout=60_000,
+    ) as upload_info:
+        if file_input.first.is_visible():
+            file_input.first.set_input_files(str(image))
+        elif upload_label.count():
+            upload_label.first.click(force=True)
+            file_input.first.set_input_files(str(image))
+        else:
+            file_input.first.set_input_files(str(image))
+
+    response = upload_info.value
+    print(f"Upload finished: {response.status} {response.url}")
+
+
 def upload(repo: str, image: Path, state_file: Path, headless: bool) -> None:
     from playwright.sync_api import sync_playwright
 
@@ -108,34 +171,10 @@ def upload(repo: str, image: Path, state_file: Path, headless: bool) -> None:
         )
         page.locator("xpath=//h2[normalize-space()='Social preview']").first.scroll_into_view_if_needed()
 
-        edit_button = page.locator("#edit-social-preview-button")
-        if edit_button.count():
-            edit_button.first.click(force=True)
-
-        remove_image = page.get_by_text("Remove image", exact=False)
-        if remove_image.count():
-            print("Removing broken social preview…")
-            remove_image.first.click(force=True)
-            page.wait_for_timeout(1500)
-
-        if edit_button.count():
-            edit_button.first.click(force=True)
-
-        file_input = page.locator("input#repo-image-file-input")
-        file_input.first.wait_for(state="attached", timeout=30_000)
-
-        print(f"Uploading {image} …")
-        with page.expect_response(
-            lambda response: (
-                response.request.method == "PUT"
-                and "/upload/repository-images/" in response.url
-                and 200 <= response.status < 300
-            ),
-            timeout=60_000,
-        ) as upload_info:
-            file_input.first.set_input_files(str(image))
-        response = upload_info.value
-        print(f"Upload finished: {response.status} {response.url}")
+        open_social_preview_menu(page)
+        remove_existing_image(page)
+        open_social_preview_menu(page)
+        set_social_preview_file(page, image)
 
         page.locator("input.js-repository-image-id").first.wait_for(state="attached", timeout=20_000)
         image_id = page.locator("input.js-repository-image-id").first.input_value().strip()
