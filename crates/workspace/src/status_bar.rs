@@ -3,8 +3,8 @@ use crate::{
     sidebar_side_context_menu, workspace_settings::StatusBarSettings,
 };
 use gpui::{
-    Anchor, AnyView, App, Context, Decorations, Entity, IntoElement, ParentElement, Render,
-    SharedString, Styled, Subscription, WeakEntity, Window, px,
+    Anchor, AnyView, App, Context, Decorations, Entity, FocusHandle, Focusable, IntoElement,
+    ParentElement, Render, Role, SharedString, Styled, Subscription, WeakEntity, Window, px,
 };
 use settings::{ActivityBarIconSize, Settings, SettingsContent, SettingsStore, update_settings_file};
 use std::{any::TypeId, sync::Arc};
@@ -104,7 +104,7 @@ pub fn icon_size_from_setting(icon_size: ActivityBarIconSize) -> IconSize {
     match icon_size {
         ActivityBarIconSize::Small => IconSize::Small,
         ActivityBarIconSize::Medium => IconSize::Medium,
-        ActivityBarIconSize::Large => IconSize::Custom(rems_from_px(20.)),
+        ActivityBarIconSize::Large => IconSize::Custom(rems_from_px(20_f32)),
     }
 }
 
@@ -133,8 +133,15 @@ pub struct StatusBar {
     right_items: Vec<Box<dyn StatusItemViewHandle>>,
     active_pane: Entity<Pane>,
     multi_workspace: Option<WeakEntity<MultiWorkspace>>,
+    focus_handle: FocusHandle,
     _observe_active_pane: Subscription,
     _settings_subscription: Subscription,
+}
+
+impl Focusable for StatusBar {
+    fn focus_handle(&self, _cx: &App) -> FocusHandle {
+        self.focus_handle.clone()
+    }
 }
 
 impl Render for StatusBar {
@@ -143,6 +150,30 @@ impl Render for StatusBar {
 
         apply_status_bar_chrome_styles(
             h_flex()
+                .id("status-bar")
+                .track_focus(&self.focus_handle)
+                .key_context("StatusBar")
+                .role(Role::Toolbar)
+                .aria_label("Status bar")
+                .tab_group()
+                .on_key_down(
+                    cx.listener(|status_bar, event: &gpui::KeyDownEvent, window, cx| {
+                        if event.keystroke.modifiers.modified() {
+                            return;
+                        }
+                        match event.keystroke.key.as_str() {
+                            "right" => {
+                                status_bar.move_item_focus(true, window, cx);
+                                cx.stop_propagation();
+                            }
+                            "left" => {
+                                status_bar.move_item_focus(false, window, cx);
+                                cx.stop_propagation();
+                            }
+                            _ => {}
+                        }
+                    }),
+                )
                 .w_full()
                 .justify_between()
                 .gap(DynamicSpacing::Base08.rems(cx)),
@@ -332,6 +363,7 @@ impl StatusBar {
             right_items: Default::default(),
             active_pane: active_pane.clone(),
             multi_workspace,
+            focus_handle: cx.focus_handle(),
             _observe_active_pane: cx.observe_in(active_pane, window, |this, _, window, cx| {
                 this.update_active_pane_item(window, cx)
             }),
@@ -448,6 +480,22 @@ impl StatusBar {
         for item in self.left_items.iter().chain(&self.right_items) {
             item.set_active_pane_item(active_pane_item.as_deref(), window, cx);
         }
+    }
+
+    fn move_item_focus(&mut self, forward: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let previous = window.focused(cx);
+        if forward {
+            window.focus_next(cx);
+        } else {
+            window.focus_prev(cx);
+        }
+        let landed_in_status_bar = window
+            .focused(cx)
+            .is_some_and(|handle| self.focus_handle.contains(&handle, window));
+        if !landed_in_status_bar && let Some(previous) = previous {
+            window.focus(&previous, cx);
+        }
+        cx.notify();
     }
 }
 
