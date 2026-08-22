@@ -15,7 +15,13 @@ ZedRail adds an optional VS Code-style vertical activity bar for panel buttons, 
 
 ## Download
 
-Releases are published on the [GitHub Releases](https://github.com/Qu3ntinS/zed-rail/releases) page:
+### Linux (one-liner)
+
+```sh
+curl -f https://raw.githubusercontent.com/Qu3ntinS/zed-rail/zedrail/script/install-zedrail.sh | sh
+```
+
+Or download manually from [GitHub Releases](https://github.com/Qu3ntinS/zed-rail/releases):
 
 | Platform | Asset |
 |----------|-------|

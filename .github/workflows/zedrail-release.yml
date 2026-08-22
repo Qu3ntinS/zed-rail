@@ -49,6 +49,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
       - name: Bundle Windows
         shell: pwsh
         run: ./script/bundle-windows.ps1
@@ -62,6 +63,7 @@ jobs:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
       - name: Bundle macOS (unsigned)
         run: ./script/bundle-mac
         env:
@@ -74,6 +76,10 @@ jobs:
 
   publish:
     needs: [build_linux_x64, build_linux_arm, build_windows, build_macos]
+    if: >-
+      always() &&
+      needs.build_linux_x64.result == 'success' &&
+      needs.build_linux_arm.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -85,12 +91,23 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" \
-            --title "ZedRail ${{ github.ref_name }}" \
-            --notes "See [docs/FORK.md](https://github.com/${{ github.repository }}/blob/zedrail/docs/FORK.md) for activity bar setup." \
+          args=(
+            "${{ github.ref_name }}"
+            --title "ZedRail ${{ github.ref_name }}"
+            --notes "Install on Linux: \`curl -f https://raw.githubusercontent.com/${{ github.repository }}/zedrail/script/install-zedrail.sh | sh\`"
+          )
+          for asset in \
             artifacts/linux-x86_64/zedrail-linux-x86_64.tar.gz \
             artifacts/linux-x86_64/zedrail-remote-server-linux-x86_64.gz \
             artifacts/linux-aarch64/zedrail-linux-aarch64.tar.gz \
-            artifacts/linux-aarch64/zedrail-remote-server-linux-aarch64.gz \
-            artifacts/windows-x86_64/ZedRail-x86_64.exe \
-            artifacts/macos-aarch64/ZedRail-aarch64.dmg
+            artifacts/linux-aarch64/zedrail-remote-server-linux-aarch64.gz
+          do
+            args+=("$asset")
+          done
+          if [ -f artifacts/windows-x86_64/ZedRail-x86_64.exe ]; then
+            args+=(artifacts/windows-x86_64/ZedRail-x86_64.exe)
+          fi
+          if [ -f artifacts/macos-aarch64/ZedRail-aarch64.dmg ]; then
+            args+=(artifacts/macos-aarch64/ZedRail-aarch64.dmg)
+          fi
+          gh release create "${args[@]}"
