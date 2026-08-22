@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: write
-  issues: write
 
 jobs:
   sync:
@@ -61,30 +60,28 @@ jobs:
         env:
           UPSTREAM_TAG: ${{ steps.check.outputs.latest_upstream }}
 
-      - name: Rebase zedrail onto main
+      - name: Merge main into zedrail
         if: steps.check.outputs.needs_sync == 'true'
-        id: rebase
+        id: merge
         run: |
           git checkout -B zedrail origin/zedrail
-          if ! git rebase main; then
-            echo "rebase_failed=true" >> "$GITHUB_OUTPUT"
-            git rebase --abort
+          if ! git merge main --no-edit -m "Merge upstream ${UPSTREAM_TAG} into zedrail"; then
+            echo "merge_failed=true" >> "$GITHUB_OUTPUT"
+            git merge --abort
           else
-            echo "rebase_failed=false" >> "$GITHUB_OUTPUT"
+            echo "merge_failed=false" >> "$GITHUB_OUTPUT"
           fi
-
-      - name: Open issue on rebase failure
-        if: steps.check.outputs.needs_sync == 'true' && steps.rebase.outputs.rebase_failed == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
           UPSTREAM_TAG: ${{ steps.check.outputs.latest_upstream }}
+
+      - name: Report merge failure
+        if: steps.check.outputs.needs_sync == 'true' && steps.merge.outputs.merge_failed == 'true'
         run: |
-          gh issue create \
-            --title "Upstream sync failed: rebase conflict (${UPSTREAM_TAG})" \
-            --body "Automatic sync from zed-industries/zed ${UPSTREAM_TAG} failed during rebase of zedrail onto main. Manual resolution required."
+          echo "::error::Upstream sync failed while merging main into zedrail for ${UPSTREAM_TAG}. Resolve conflicts locally and push."
+          exit 1
 
       - name: Tag and push release
-        if: steps.check.outputs.needs_sync == 'true' && steps.rebase.outputs.rebase_failed == 'false'
+        if: steps.check.outputs.needs_sync == 'true' && steps.merge.outputs.merge_failed == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
           UPSTREAM_TAG: ${{ steps.check.outputs.latest_upstream }}
@@ -92,6 +89,6 @@ jobs:
           upstream_version="${UPSTREAM_TAG#v}"
           tag="v${upstream_version}-rail.1"
           git push origin main
-          git push origin zedrail --force-with-lease
+          git push origin zedrail
           git tag "${tag}"
           git push origin "${tag}"
