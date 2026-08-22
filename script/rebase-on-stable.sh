@@ -48,6 +48,9 @@ git checkout -B zedrail main
 
 for commit in "${COMMITS[@]}"; do
   subject=$(git log -1 --format=%s "${commit}")
+  case "${subject}" in
+    "Track upstream stable v1.16.1"|"Track upstream stable v1.16.2") continue ;;
+  esac
   echo "Cherry-pick ${commit:0:12} — ${subject}"
   if ! git cherry-pick "${commit}"; then
     cat <<EOF
