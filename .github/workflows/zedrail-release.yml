@@ -26,13 +26,16 @@ jobs:
           sudo apt-get install -y clang-18
       - name: Bundle Linux
         run: ./script/bundle-linux
+      - name: Stage artifacts
+        run: |
+          mkdir -p staging
+          cp target/release/zedrail-linux-x86_64.tar.gz staging/
+          cp target/zedrail-remote-server-linux-x86_64.gz staging/
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: linux-x86_64
-          path: |
-            target/release/zedrail-linux-x86_64.tar.gz
-            target/zedrail-remote-server-linux-x86_64.gz
+          path: staging/*
 
   build_linux_arm:
     runs-on: ubuntu-24.04-arm
@@ -45,30 +48,40 @@ jobs:
         run: ./script/linux
       - name: Bundle Linux
         run: ./script/bundle-linux
+      - name: Stage artifacts
+        run: |
+          mkdir -p staging
+          cp target/release/zedrail-linux-aarch64.tar.gz staging/
+          cp target/zedrail-remote-server-linux-aarch64.gz staging/
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: linux-aarch64
-          path: |
-            target/release/zedrail-linux-aarch64.tar.gz
-            target/zedrail-remote-server-linux-aarch64.gz
+          path: staging/*
 
   build_windows:
     runs-on: windows-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Bundle Windows
         shell: pwsh
         run: ./script/bundle-windows.ps1
+      - name: Stage artifacts
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path staging
+          Copy-Item target/ZedRail-x86_64.exe staging/
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-x86_64
-          path: target/release/ZedRail-x86_64.exe
+          path: staging/*
 
   build_macos:
-    runs-on: macos-14
+    runs-on: macos-15
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -76,11 +89,15 @@ jobs:
         run: ./script/bundle-mac
         env:
           ZED_BUNDLE: "true"
+      - name: Stage artifacts
+        run: |
+          mkdir -p staging
+          cp target/aarch64-apple-darwin/release/ZedRail-aarch64.dmg staging/
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: macos-aarch64
-          path: target/aarch64-apple-darwin/release/ZedRail-aarch64.dmg
+          path: staging/*
 
   publish:
     needs: [build_linux_x64, build_linux_arm, build_windows, build_macos]
@@ -95,27 +112,40 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+          merge-multiple: true
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
+          find artifacts -type f | sort
+
           args=(
             "${{ github.ref_name }}"
             --title "ZedRail ${{ github.ref_name }}"
             --notes "Install on Linux: \`curl -f https://raw.githubusercontent.com/${{ github.repository }}/zedrail/script/install-zedrail.sh | sh\`"
           )
-          for asset in \
-            artifacts/linux-x86_64/zedrail-linux-x86_64.tar.gz \
-            artifacts/linux-x86_64/zedrail-remote-server-linux-x86_64.gz \
-            artifacts/linux-aarch64/zedrail-linux-aarch64.tar.gz \
-            artifacts/linux-aarch64/zedrail-remote-server-linux-aarch64.gz
-          do
-            args+=("$asset")
+
+          required=(
+            zedrail-linux-x86_64.tar.gz
+            zedrail-remote-server-linux-x86_64.gz
+            zedrail-linux-aarch64.tar.gz
+            zedrail-remote-server-linux-aarch64.gz
+          )
+          for asset in "${required[@]}"; do
+            path="$(find artifacts -type f -name "$asset" | head -1)"
+            if [ -z "$path" ]; then
+              echo "Missing required asset: $asset"
+              exit 1
+            fi
+            args+=("$path")
           done
-          if [ -f artifacts/windows-x86_64/ZedRail-x86_64.exe ]; then
-            args+=(artifacts/windows-x86_64/ZedRail-x86_64.exe)
-          fi
-          if [ -f artifacts/macos-aarch64/ZedRail-aarch64.dmg ]; then
-            args+=(artifacts/macos-aarch64/ZedRail-aarch64.dmg)
-          fi
+
+          for optional in ZedRail-x86_64.exe ZedRail-aarch64.dmg; do
+            path="$(find artifacts -type f -name "$optional" | head -1)"
+            if [ -n "$path" ]; then
+              args+=("$path")
+            fi
+          done
+
           gh release create "${args[@]}"
