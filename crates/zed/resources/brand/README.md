@@ -31,7 +31,9 @@ Requires `python3`, `Pillow`, `rsvg-convert` (librsvg), and `magick` (ImageMagic
 
 ## GitHub Social preview
 
-Upload `zedrail-social-preview.png` under **Settings → General → Social preview → Edit** (1280×640 recommended).
+Upload `zedrail-social-preview.png` (or `.jpg` if PNG fails) under **Settings → General → Social preview → Edit** (1280×640 recommended).
+
+After saving, open the `og:image` URL from the repo page source — it must return HTTP 200, not 404. If the settings preview stays empty, click **Remove image**, re-upload, and **Save changes** again.
 
 ## Trademark
 
