@@ -25,8 +25,13 @@ This writes:
 - `crates/zed/resources/app-icon@2x.png` (1024×1024)
 - `crates/zed/resources/windows/app-icon.ico`
 - `crates/zed/resources/brand/zedrail-app-icon-preview.png` (256×256)
+- `crates/zed/resources/brand/zedrail-social-preview.png` (1280×640, GitHub Social preview)
 
 Requires `python3`, `Pillow`, `rsvg-convert` (librsvg), and `magick` (ImageMagick).
+
+## GitHub Social preview
+
+Upload `zedrail-social-preview.png` under **Settings → General → Social preview → Edit** (1280×640 recommended).
 
 ## Trademark
 
