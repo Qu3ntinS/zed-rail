@@ -131,7 +131,7 @@ function GenerateLicenses {
 function BuildZedAndItsFriends {
     Write-Output "Building Zed and its friends, for channel: $channel"
     # Build zed.exe, cli.exe and auto_update_helper.exe
-    cargo build --release --package zed --package cli --package auto_update_helper --bin zedrail --bin cli --target $target
+    cargo build --release --package zed --package cli --package auto_update_helper --bin zedrail --bin cli --bin auto_update_helper --target $target
     $editorSource = if (Test-Path ".\$CargoOutDir\zedrail.exe") {
         ".\$CargoOutDir\zedrail.exe"
     } elseif (Test-Path ".\$CargoOutDir\zed.exe") {
@@ -182,8 +182,13 @@ function BuildRemoteServer {
 }
 
 function ZipZedAndItsFriendsDebug {
+    $editorPdb = if (Test-Path ".\$CargoOutDir\zedrail.pdb") {
+        ".\$CargoOutDir\zedrail.pdb"
+    } else {
+        ".\$CargoOutDir\zed.pdb"
+    }
     $items = @(
-        ".\$CargoOutDir\zed.pdb",
+        $editorPdb,
         ".\$CargoOutDir\cli.pdb",
         ".\$CargoOutDir\auto_update_helper.pdb",
         ".\$CargoOutDir\explorer_command_injector.pdb",
