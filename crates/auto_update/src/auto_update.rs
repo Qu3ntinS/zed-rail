@@ -997,7 +997,7 @@ impl AutoUpdater {
         let filename = match OS {
             "macos" => anyhow::Ok("Zed.dmg"),
             "linux" => Ok("zed.tar.gz"),
-            "windows" => Ok("Zed.exe"),
+            "windows" => Ok(paths::WINDOWS_EDITOR_EXE),
             unsupported_os => anyhow::bail!("not supported: {unsupported_os}"),
         }?;
 
