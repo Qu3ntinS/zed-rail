@@ -80,7 +80,9 @@ jobs:
         with:
           ref: ${{ env.RELEASE_TAG }}
       - name: Install dependencies
-        run: ./script/linux
+        run: |
+          ./script/linux
+          sudo apt-get install -y clang-18
       - name: Bundle Linux
         run: ./script/bundle-linux
       - name: Stage artifacts
