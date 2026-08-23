@@ -56,6 +56,16 @@ popd
 
 export ZED_BUNDLE=true
 
+EDITOR_BIN="zedrail"
+
+require_release_binary() {
+    local binary=$1
+    if [[ ! -f "target/${target_triple}/${target_dir}/${binary}" ]]; then
+        echo "Missing release binary: target/${target_triple}/${target_dir}/${binary}" >&2
+        exit 1
+    fi
+}
+
 cargo_bundle_version=$(cargo -q bundle --help 2>&1 | head -n 1 || echo "")
 if [ "$cargo_bundle_version" != "cargo-bundle v0.6.1-zed" ]; then
     cargo install cargo-bundle --git https://github.com/zed-industries/cargo-bundle.git --branch zed-deploy
@@ -86,8 +96,10 @@ script/generate-licenses
 
 rustup target add $target_triple
 
-echo "Compiling zed binaries"
-cargo build ${build_flag} --package zed --package cli --bin zedrail --bin cli --target $target_triple
+echo "Compiling ${EDITOR_BIN} binaries"
+cargo build ${build_flag} --package zed --package cli --bin "${EDITOR_BIN}" --bin cli --target $target_triple
+require_release_binary "${EDITOR_BIN}"
+require_release_binary cli
 # Build remote_server in separate invocation to prevent feature unification from other crates
 # from influencing dynamic libraries required by it.
 cargo build ${build_flag} --package remote_server --target $target_triple
@@ -100,7 +112,7 @@ sed \
     "s/package.metadata.bundle-${channel}/package.metadata.bundle/" \
     Cargo.toml
 
-app_path=$(cargo bundle ${build_flag} --target $target_triple --select-workspace-root --bin zedrail | xargs)
+app_path=$(cargo bundle ${build_flag} --target $target_triple --select-workspace-root --bin "${EDITOR_BIN}" | xargs)
 
 mv Cargo.toml.backup Cargo.toml
 popd
@@ -203,7 +215,7 @@ function sign_app_binaries() {
         # sequence of codesign commands modeled after this example: https://developer.apple.com/forums/thread/701514
         /usr/bin/codesign --deep --force --timestamp --options runtime --sign "$IDENTITY" "${app_path}/Contents/MacOS/cli" -v
         /usr/bin/codesign --deep --force --timestamp --options runtime --sign "$IDENTITY" "${app_path}/Contents/MacOS/git" -v
-        /usr/bin/codesign --deep --force --timestamp --options runtime --entitlements crates/zed/resources/zed.entitlements --sign "$IDENTITY" "${app_path}/Contents/MacOS/zedrail" -v
+        /usr/bin/codesign --deep --force --timestamp --options runtime --entitlements crates/zed/resources/zed.entitlements --sign "$IDENTITY" "${app_path}/Contents/MacOS/${EDITOR_BIN}" -v
         /usr/bin/codesign --force --timestamp --options runtime --entitlements crates/zed/resources/zed.entitlements --sign "$IDENTITY" "${app_path}" -v
     else
         echo "One or more of the following variables are missing: MACOS_CERTIFICATE, MACOS_CERTIFICATE_PASSWORD, APPLE_NOTARIZATION_KEY, APPLE_NOTARIZATION_KEY_ID, APPLE_NOTARIZATION_ISSUER_ID"
@@ -296,9 +308,8 @@ function upload_debug_symbols() {
     if [ "$local_install" = true ]; then
         echo "local install; skipping sentry upload."
     elif [[ -n "${SENTRY_AUTH_TOKEN:-}" ]]; then
-        echo "Uploading zed debug symbols to sentry..."
-        exe_path="target/${target_triple}/release/Zed"
-        if ! dsymutil --flat "target/${target_triple}/${target_dir}/zedrail" 2> target/dsymutil.log; then
+        echo "Uploading ZedRail debug symbols to sentry..."
+        if ! dsymutil --flat "target/${target_triple}/${target_dir}/${EDITOR_BIN}" 2> target/dsymutil.log; then
             echo "dsymutil failed"
             cat target/dsymutil.log
             exit 1
@@ -314,7 +325,7 @@ function upload_debug_symbols() {
         for attempt in 1 2 3; do
             echo "Sentry upload attempt $attempt..."
             if sentry-cli debug-files upload --include-sources --wait -p zed -o zed-dev \
-                "target/${target_triple}/${target_dir}/zedrail.dwarf" \
+                "target/${target_triple}/${target_dir}/${EDITOR_BIN}.dwarf" \
                 "target/${target_triple}/${target_dir}/remote_server.dwarf"; then
                 break
             else
@@ -332,7 +343,7 @@ function upload_debug_symbols() {
 
 upload_debug_symbols
 
-cp target/${target_triple}/${target_dir}/zedrail "${app_path}/Contents/MacOS/zedrail"
+cp target/${target_triple}/${target_dir}/${EDITOR_BIN} "${app_path}/Contents/MacOS/${EDITOR_BIN}"
 cp target/${target_triple}/${target_dir}/cli "${app_path}/Contents/MacOS/cli"
 sign_app_binaries
 
