@@ -41,6 +41,10 @@ jobs:
           sudo apt-get install -y clang-18
       - name: Verify compile
         run: cargo check -p zed --locked
+      - name: Verify Windows bundle crates
+        run: |
+          rustup target add x86_64-pc-windows-msvc
+          cargo check -p cli -p auto_update_helper --target x86_64-pc-windows-msvc --locked
       - name: Verify ZedRail bundle scripts
         run: ./script/verify-zedrail-bundle.sh
 
