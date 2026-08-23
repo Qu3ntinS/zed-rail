@@ -169,13 +169,11 @@ pub(crate) static JOBS: LazyLock<[Job; 22]> = LazyLock::new(|| {
         Path::new(value)
     }
     let editor = paths::WINDOWS_EDITOR_EXE;
-    let old_editor = format!("old\\{editor}");
-    let install_editor = format!("install\\{editor}");
     [
         // Move old files
         // Not deleting because installing new files can fail
         Job::mkdir(p("old")),
-        Job::move_file(p(editor), p(&old_editor)),
+        Job::move_file(p(editor), p(paths::WINDOWS_OLD_EDITOR_EXE)),
         Job::mkdir(p("old\\bin")),
         Job::move_file(p("bin\\Zed.exe"), p("old\\bin\\Zed.exe")),
         Job::move_file(p("bin\\zed"), p("old\\bin\\zed")),
@@ -192,7 +190,7 @@ pub(crate) static JOBS: LazyLock<[Job; 22]> = LazyLock::new(|| {
         //
         Job::move_file(p("conpty.dll"), p("old\\conpty.dll")),
         // Copy new files
-        Job::move_file(p(&install_editor), p(editor)),
+        Job::move_file(p(paths::WINDOWS_INSTALL_EDITOR_EXE), p(editor)),
         Job::move_file(p("install\\bin\\Zed.exe"), p("bin\\Zed.exe")),
         Job::move_file(p("install\\bin\\zed"), p("bin\\zed")),
         //
