@@ -41,15 +41,28 @@ jobs:
           sudo apt-get install -y clang-18
       - name: Verify compile
         run: cargo check -p zed --locked
-      - name: Verify Windows bundle crates
-        run: |
-          rustup target add x86_64-pc-windows-msvc
-          cargo check -p cli -p auto_update_helper --target x86_64-pc-windows-msvc --locked
       - name: Verify ZedRail bundle scripts
         run: ./script/verify-zedrail-bundle.sh
 
+  verify_windows:
+    runs-on: windows-latest
+    steps:
+      - name: Enable long paths
+        shell: pwsh
+        run: |
+          git config --system core.longpaths true
+          New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" `
+            -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Verify Windows bundle crates compile
+        shell: pwsh
+        run: cargo check -p cli -p auto_update_helper --locked
+
   build_linux_x64:
-    needs: verify
+    needs: [verify, verify_windows]
     runs-on: ubuntu-24.04
     env:
       CC: clang-18
@@ -76,7 +89,7 @@ jobs:
           path: staging/*
 
   build_linux_arm:
-    needs: verify
+    needs: [verify, verify_windows]
     runs-on: ubuntu-24.04-arm
     env:
       CC: clang-18
@@ -103,7 +116,7 @@ jobs:
           path: staging/*
 
   build_windows:
-    needs: verify
+    needs: [verify, verify_windows]
     runs-on: windows-latest
     timeout-minutes: 360
     steps:
@@ -132,7 +145,7 @@ jobs:
           path: staging/*
 
   build_macos:
-    needs: verify
+    needs: [verify, verify_windows]
     runs-on: macos-15
     timeout-minutes: 240
     steps:
