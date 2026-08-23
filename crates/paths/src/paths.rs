@@ -26,6 +26,15 @@ pub const EDITOR_BINARY_NAME: &str = "zedrail";
 /// Installed editor executable file name on Windows (e.g. `ZedRail.exe`).
 pub const WINDOWS_EDITOR_EXE: &str = const_format::concatcp!(APP_NAME, ".exe");
 
+/// Editor path relative to the CLI shim in a Windows install (`bin/`).
+pub const WINDOWS_EDITOR_EXE_RELATIVE_TO_BIN: &str =
+    const_format::concatcp!("../", WINDOWS_EDITOR_EXE);
+
+/// Staging paths used by the Windows auto-update helper.
+pub const WINDOWS_OLD_EDITOR_EXE: &str = const_format::concatcp!("old\\", WINDOWS_EDITOR_EXE);
+pub const WINDOWS_INSTALL_EDITOR_EXE: &str =
+    const_format::concatcp!("install\\", WINDOWS_EDITOR_EXE);
+
 /// Lowercased form of [`APP_NAME`], for use in XDG-style paths on
 /// Linux/FreeBSD and the macOS `~/.config` fallback.
 pub const APP_NAME_LOWERCASE: &str = {
