@@ -129,8 +129,9 @@ function GenerateLicenses {
 }
 
 function BuildZedAndItsFriends {
-    Write-Output "Building Zed and its friends, for channel: $channel"
-    # Build zed.exe, cli.exe and auto_update_helper.exe
+    Write-Output "Building ZedRail and its friends, for channel: $channel"
+    $editorExeName = "ZedRail.exe"
+    # Build ZedRail.exe, cli.exe and auto_update_helper.exe
     cargo build --release --package zed --package cli --package auto_update_helper --bin zedrail --bin cli --bin auto_update_helper --target $target
     $editorSource = if (Test-Path ".\$CargoOutDir\zedrail.exe") {
         ".\$CargoOutDir\zedrail.exe"
@@ -139,12 +140,12 @@ function BuildZedAndItsFriends {
     } else {
         throw "Could not find editor binary in $CargoOutDir"
     }
-    $editorDestination = if ($editorSource -like "*\zedrail.exe") {
-        "$innoDir\ZedRail.exe"
-    } else {
-        "$innoDir\Zed.exe"
+    foreach ($required in @("cli.exe", "auto_update_helper.exe")) {
+        if (-not (Test-Path ".\$CargoOutDir\$required")) {
+            throw "Missing required binary: $CargoOutDir\$required"
+        }
     }
-    Copy-Item -Path $editorSource -Destination $editorDestination -Force
+    Copy-Item -Path $editorSource -Destination "$innoDir\$editorExeName" -Force
     Copy-Item -Path ".\$CargoOutDir\cli.exe" -Destination "$innoDir\cli.exe" -Force
     Copy-Item -Path ".\$CargoOutDir\auto_update_helper.exe" -Destination "$innoDir\auto_update_helper.exe" -Force
     # Build explorer_command_injector.dll
