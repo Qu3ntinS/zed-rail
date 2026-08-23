@@ -19,6 +19,7 @@ log.workspace = true
 simplelog.workspace = true
 
 [target.'cfg(target_os = "windows")'.dependencies]
+paths.workspace = true
 scopeguard = "1.2"
 windows.workspace = true
 

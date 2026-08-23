@@ -45,6 +45,16 @@ done
 
 export ZED_BUNDLE=true
 
+EDITOR_BIN="zedrail"
+
+require_release_binary() {
+    local binary=$1
+    if [[ ! -f "${target_dir}/${target_triple}/release/${binary}" ]]; then
+        echo "Missing release binary: ${target_dir}/${target_triple}/release/${binary}" >&2
+        exit 1
+    fi
+}
+
 channel=$(<crates/zed/RELEASE_CHANNEL)
 target_dir="${CARGO_TARGET_DIR:-target}"
 
@@ -83,7 +93,9 @@ if [[ "$(uname -m)" == "aarch64" ]]; then
 else
     export RUSTFLAGS="${RUSTFLAGS:-} -C link-args=-Wl,--disable-new-dtags,-rpath,\$ORIGIN/../lib"
 fi
-cargo --config .cargo/bundle-config.toml build --release --target "${target_triple}" --package zed --package cli --bin zedrail --bin cli
+cargo --config .cargo/bundle-config.toml build --release --target "${target_triple}" --package zed --package cli --bin "${EDITOR_BIN}" --bin cli
+require_release_binary "${EDITOR_BIN}"
+require_release_binary cli
 # Build remote_server in separate invocation to prevent feature unification from other crates
 # from influencing dynamic libraries required by it.
 if [[ "$remote_server_triple" == "$musl_triple" ]]; then
@@ -105,7 +117,7 @@ else
         for attempt in 1 2 3; do
             echo "Attempting sentry upload (attempt $attempt/3)..."
             if sentry-cli debug-files upload --include-sources --wait -p zed -o zed-dev \
-                "${target_dir}/${target_triple}"/release/zedrail \
+                "${target_dir}/${target_triple}"/release/${EDITOR_BIN} \
                 "${target_dir}/${remote_server_triple}"/release/remote_server; then
                 echo "Sentry upload successful on attempt $attempt"
                 break
@@ -127,9 +139,9 @@ fi
 # is skipped.
 # We use llvm-objcopy because GNU objcopy on older distros (e.g. Ubuntu 20.04)
 # doesn't understand CREL sections produced by newer LLVM.
-llvm-objcopy --only-keep-debug "${target_dir}/${target_triple}/release/zedrail" "${target_dir}/${target_triple}/release/zedrail.dbg"
+llvm-objcopy --only-keep-debug "${target_dir}/${target_triple}/release/${EDITOR_BIN}" "${target_dir}/${target_triple}/release/${EDITOR_BIN}.dbg"
 llvm-objcopy --only-keep-debug "${target_dir}/${remote_server_triple}/release/remote_server" "${target_dir}/${remote_server_triple}/release/remote_server.dbg"
-llvm-objcopy --strip-debug --discard-all "${target_dir}/${target_triple}/release/zedrail"
+llvm-objcopy --strip-debug --discard-all "${target_dir}/${target_triple}/release/${EDITOR_BIN}"
 llvm-objcopy --strip-debug --discard-all "${target_dir}/${target_triple}/release/cli"
 llvm-objcopy --strip-debug --discard-all "${target_dir}/${remote_server_triple}/release/remote_server"
 
@@ -154,7 +166,7 @@ zed_dir="${temp_dir}/zedrail${suffix}.app"
 
 # Binary
 mkdir -p "${zed_dir}/bin" "${zed_dir}/libexec"
-cp "${target_dir}/${target_triple}/release/zedrail" "${zed_dir}/libexec/zedrail-editor"
+cp "${target_dir}/${target_triple}/release/${EDITOR_BIN}" "${zed_dir}/libexec/zedrail-editor"
 cp "${target_dir}/${target_triple}/release/cli" "${zed_dir}/bin/zedrail"
 
 # Libs
@@ -165,7 +177,7 @@ cp "${target_dir}/${target_triple}/release/cli" "${zed_dir}/bin/zedrail"
 # get dlopen'd are built against the system GLib, and resolving them against an
 # older bundled copy fails with missing symbols.
 find_libs() {
-    ldd ${target_dir}/${target_triple}/release/zedrail |\
+    ldd ${target_dir}/${target_triple}/release/${EDITOR_BIN} |\
         cut -d' ' -f3 |\
         grep -v '\<\(libc.so\|libgcc_s.so\|libm.so\|libpthread.so\|libdl.so\|libasound.so\)' |\
         grep -v '\<\(libglib-2.0.so\|libgobject-2.0.so\|libgio-2.0.so\|libgmodule-2.0.so\|libpcre.so\|libpcre2-8.so\|libmount.so\|libblkid.so\|libselinux.so\|libffi.so\|libresolv.so\|libz.so\)'
