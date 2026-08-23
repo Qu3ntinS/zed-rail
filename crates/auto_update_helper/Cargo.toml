@@ -17,6 +17,7 @@ doctest = false
 anyhow.workspace = true
 log.workspace = true
 simplelog.workspace = true
+paths.workspace = true
 scopeguard = "1.2"
 windows = { workspace = true, features = ["Win32_System_RestartManager", "Win32_UI_Controls"] }
 

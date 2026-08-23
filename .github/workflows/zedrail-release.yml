@@ -41,6 +41,8 @@ jobs:
           sudo apt-get install -y clang-18
       - name: Verify compile
         run: cargo check -p zed --locked
+      - name: Verify ZedRail bundle scripts
+        run: ./script/verify-zedrail-bundle.sh
 
   build_linux_x64:
     needs: verify
