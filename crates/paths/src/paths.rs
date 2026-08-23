@@ -20,6 +20,12 @@ pub const APP_NAME: &str = "ZedRail";
 /// GitHub repository (`owner/name`) used for ZedRail release downloads.
 pub const GITHUB_RELEASES_REPO: &str = "Qu3ntinS/zed-rail";
 
+/// Cargo binary name for the editor (see `crates/zed/Cargo.toml` `[[bin]]`).
+pub const EDITOR_BINARY_NAME: &str = "zedrail";
+
+/// Installed editor executable file name on Windows (e.g. `ZedRail.exe`).
+pub const WINDOWS_EDITOR_EXE: &str = const_format::concatcp!(APP_NAME, ".exe");
+
 /// Lowercased form of [`APP_NAME`], for use in XDG-style paths on
 /// Linux/FreeBSD and the macOS `~/.config` fallback.
 pub const APP_NAME_LOWERCASE: &str = {

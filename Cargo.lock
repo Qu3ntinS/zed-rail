@@ -1417,6 +1417,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "log",
+ "paths",
  "scopeguard",
  "simplelog",
  "tempfile",
@@ -5955,6 +5956,7 @@ dependencies = [
 name = "explorer_command_injector"
 version = "0.1.0"
 dependencies = [
+ "paths",
  "windows 0.62.2",
  "windows-core 0.62.2",
  "windows-registry 0.6.1",
