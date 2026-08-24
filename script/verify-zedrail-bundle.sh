@@ -50,6 +50,10 @@ assert_file_lacks script/bundle-mac 'Contents/MacOS/zed"'
 assert_file_contains crates/explorer_command_injector/src/explorer_command_injector.rs 'paths::WINDOWS_EDITOR_EXE'
 assert_file_contains crates/auto_update/src/auto_update.rs 'paths::WINDOWS_EDITOR_EXE'
 
+assert_file_contains crates/paths/src/paths.rs 'LINUX_LIBEXEC_EDITOR_RELATIVE_TO_BIN'
+assert_file_contains crates/cli/src/main.rs 'paths::LINUX_LIBEXEC_EDITOR_RELATIVE_TO_BIN'
+assert_file_lacks crates/cli/src/main.rs '../libexec/zed-editor'
+
 if [[ $errors -gt 0 ]]; then
     echo "$errors bundle consistency check(s) failed" >&2
     exit 1

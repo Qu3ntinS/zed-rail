@@ -64,6 +64,26 @@ pub const APP_NAME_LOWERCASE: &str = {
     }
 };
 
+/// Editor binary file name in Linux bundles (e.g. `zedrail-editor`).
+pub const LINUX_LIBEXEC_EDITOR: &str = const_format::concatcp!(EDITOR_BINARY_NAME, "-editor");
+
+/// Path from the CLI shim (`bin/`) to the editor in a standard Linux bundle.
+pub const LINUX_LIBEXEC_EDITOR_RELATIVE_TO_BIN: &str =
+    const_format::concatcp!("../libexec/", EDITOR_BINARY_NAME, "-editor");
+
+/// Path from the CLI shim to the editor on distros that install under `lib/<app>/`.
+pub const LINUX_LIB_EDITOR_RELATIVE_TO_BIN: &str = const_format::concatcp!(
+    "../lib/",
+    APP_NAME_LOWERCASE,
+    "/",
+    EDITOR_BINARY_NAME,
+    "-editor"
+);
+
+/// Path to the editor in local development builds (`target/release/`).
+pub const LINUX_DEV_EDITOR_RELATIVE_TO_BIN: &str =
+    const_format::concatcp!("./", EDITOR_BINARY_NAME);
+
 /// A custom data directory override, set only by `set_custom_data_dir`.
 /// This is used to override the default data directory location.
 /// The directory will be created if it doesn't exist when set.
