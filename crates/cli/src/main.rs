@@ -906,10 +906,13 @@ mod linux {
                 let cli = env::current_exe()?;
                 let dir = cli.parent().context("no parent path for cli")?;
 
-                // libexec is the standard, lib/zed is for Arch (and other non-libexec distros),
-                // ./zed is for the target directory in development builds.
-                let possible_locations =
-                    ["../libexec/zed-editor", "../lib/zed/zed-editor", "./zed"];
+                // libexec is the standard, lib/<app> is for Arch (and other non-libexec distros),
+                // ./<editor-bin> is for the target directory in development builds.
+                let possible_locations = [
+                    paths::LINUX_LIBEXEC_EDITOR_RELATIVE_TO_BIN,
+                    paths::LINUX_LIB_EDITOR_RELATIVE_TO_BIN,
+                    paths::LINUX_DEV_EDITOR_RELATIVE_TO_BIN,
+                ];
                 possible_locations
                     .iter()
                     .find_map(|p| dir.join(p).canonicalize().ok().filter(|path| path != &cli))
@@ -1042,7 +1045,12 @@ mod flatpak {
         if !invocation_args.iter().any(|arg| arg == "--zed") {
             // Positional paths consume all following arguments, so launcher options must precede them.
             args.push("--zed".into());
-            args.push(flatpak_dir.join("libexec").join("zed-editor").into());
+            args.push(
+                flatpak_dir
+                    .join("libexec")
+                    .join(paths::LINUX_LIBEXEC_EDITOR)
+                    .into(),
+            );
         }
 
         args.extend_from_slice(invocation_args);
