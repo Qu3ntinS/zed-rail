@@ -465,7 +465,9 @@ mod test {
 
         assert_eq!(
             command.get_program(),
-            Path::new(r"C:\Program Files\Zed\Zed.exe").as_os_str()
+            Path::new(r"C:\Program Files\Zed")
+                .join(paths::WINDOWS_EDITOR_EXE)
+                .as_os_str()
         );
         assert_eq!(
             command.get_args().collect::<Vec<_>>(),

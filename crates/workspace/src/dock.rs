@@ -292,6 +292,7 @@ pub struct Dock {
     active_panel_index: Option<usize>,
     focus_handle: FocusHandle,
     focus_follows_mouse: FocusFollowsMouse,
+    pub(crate) serialized_dock: Option<DockData>,
     restoration: DockRestoreState,
     zoom_layer_open: bool,
     modal_layer: Entity<ModalLayer>,
@@ -729,6 +730,7 @@ impl Dock {
                 focus_handle: focus_handle.clone(),
                 focus_follows_mouse: WorkspaceSettings::get_global(cx).focus_follows_mouse,
                 _subscriptions: [focus_subscription, zoom_subscription],
+                serialized_dock: None,
                 restoration: DockRestoreState::Restoring { pending: None },
                 zoom_layer_open: false,
                 modal_layer,
@@ -1096,6 +1098,15 @@ impl Dock {
 
         cx.notify();
         index
+    }
+
+    pub fn restore_state(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if let Some(serialized) = self.serialized_dock.clone() {
+            self.restore_serialized_state(serialized, window, cx);
+            true
+        } else {
+            false
+        }
     }
 
     pub(crate) fn restore_serialized_state(
