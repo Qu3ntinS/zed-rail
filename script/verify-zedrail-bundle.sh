@@ -34,8 +34,12 @@ assert_file_contains crates/paths/src/paths.rs 'WINDOWS_EDITOR_EXE'
 
 for script in script/bundle-linux script/bundle-mac; do
     assert_file_contains "$script" 'EDITOR_BIN="zedrail"'
-    assert_file_contains "$script" '--bin "${EDITOR_BIN}" --bin cli'
-    assert_file_contains "$script" 'require_release_binary'
+    # Release builds call cargo twice: rustc for the editor (linker flags)
+    # and build for cli. Both binaries still have to be named.
+    assert_file_contains "$script" '--bin "${EDITOR_BIN}"'
+    assert_file_contains "$script" '--bin cli'
+    assert_file_contains "$script" 'require_release_binary "${EDITOR_BIN}"'
+    assert_file_contains "$script" 'require_release_binary cli'
 done
 
 assert_file_contains script/bundle-windows.ps1 '--bin zedrail --bin cli --bin auto_update_helper'
