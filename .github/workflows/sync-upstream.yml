@@ -190,9 +190,17 @@ jobs:
           if [[ -z "${latest}" ]]; then
             exit 0
           fi
-          if gh release view "${latest}" >/dev/null 2>&1; then
+          # upstream remote makes bare `gh` resolve zed-industries/zed.
+          repo="${{ github.repository }}"
+          view_log=$(mktemp)
+          if gh release view "${latest}" --repo "${repo}" >"${view_log}" 2>&1; then
             echo "Release ${latest} already published"
             exit 0
+          fi
+          if ! grep -qi 'release not found' "${view_log}"; then
+            echo "gh release view failed; not starting another release build" >&2
+            cat "${view_log}" >&2
+            exit 1
           fi
           tag_sha=$(git rev-parse "${latest}^{commit}")
           zedrail_sha=$(git rev-parse origin/zedrail)
@@ -200,11 +208,15 @@ jobs:
             echo "Latest tag ${latest} is not at zedrail HEAD, skipping retry"
             exit 0
           fi
-          read -r status conclusion <<< "$(gh run list --repo "${{ github.repository }}" \
+          if ! status_line=$(gh run list --repo "${repo}" \
             --workflow=zedrail-release.yml --limit 30 \
             --json headBranch,status,conclusion \
-            --jq -r "[.[] | select(.headBranch == \"${latest}\")] | first | \"\(.status // \"none\") \(.conclusion // \"none\")\"")"
-          if [[ "${status}" == "in_progress" || "${status}" == "queued" ]]; then
+            --jq "[.[] | select(.headBranch == \"${latest}\")] | first // {} | \"\(.status // \"none\") \(.conclusion // \"none\")\""); then
+            echo "gh run list failed; not starting another release build" >&2
+            exit 1
+          fi
+          read -r status conclusion <<< "${status_line}"
+          if [[ "${status}" == "in_progress" || "${status}" == "queued" || "${status}" == "pending" || "${status}" == "waiting" || "${status}" == "requested" ]]; then
             echo "Release for ${latest} is ${status}, skipping retry"
             exit 0
           fi
