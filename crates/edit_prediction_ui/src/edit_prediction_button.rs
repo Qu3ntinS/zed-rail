@@ -954,7 +954,7 @@ impl EditPredictionButton {
 
         menu = menu.item(
             ContextMenuEntry::new("Configure Excluded Files")
-                .icon(IconName::LockOutlined)
+                .icon(IconName::Lock)
                 .icon_color(Color::Muted)
                 .documentation_aside(DocumentationSide::Left, |_| {
                     Label::new(indoc!{"
@@ -1096,7 +1096,11 @@ impl EditPredictionButton {
                     "Go to Copilot Settings",
                     OpenBrowser { url: settings_url }.boxed_clone(),
                 )
-                .action("Sign Out", copilot::SignOut.boxed_clone());
+                .entry("Sign Out", None, |window, cx| {
+                    if let Some(auth) = copilot::GlobalCopilotAuth::try_global(cx) {
+                        copilot_ui::initiate_sign_out(auth.0.clone(), window, cx);
+                    }
+                });
             menu
         })
     }
@@ -1141,7 +1145,7 @@ impl EditPredictionButton {
 
                         v_flex()
                             .max_w_64()
-                            .h(rems_from_px(148.))
+                            .h(rems_from_px(148_f32))
                             .child(render_zeta_tab_animation(cx))
                             .child(Label::new("Edit Prediction"))
                             .child(

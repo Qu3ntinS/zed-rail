@@ -219,9 +219,9 @@ async fn get_github_release_asset(
 
     let release = if let Some(version) = version {
         let tag = format!("v{version}");
-        http_client::github::get_release_by_tag_name(repo, &tag, http.clone()).await?
+        github_releases::get_release_by_tag_name(repo, &tag, http.clone()).await?
     } else {
-        http_client::github::latest_github_release(repo, true, false, http).await?
+        github_releases::latest_github_release(repo, true, false, http).await?
     };
 
     let asset_name = zedrail_release_asset_name(asset, os, arch)?;

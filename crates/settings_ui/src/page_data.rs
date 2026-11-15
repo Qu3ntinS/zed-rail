@@ -4316,7 +4316,7 @@ fn window_and_layout_page() -> SettingsPage {
         .into()
     }
 
-    fn status_bar_section() -> [SettingsPageItem; 13] {
+    fn status_bar_section() -> [SettingsPageItem; 14] {
         [
             SettingsPageItem::SectionHeader("Status Bar"),
             SettingsPageItem::SettingItem(SettingItem {
