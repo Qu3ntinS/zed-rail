@@ -42,7 +42,7 @@ for script in script/bundle-linux script/bundle-mac; do
     assert_file_contains "$script" 'require_release_binary cli'
 done
 
-assert_file_contains script/bundle-windows.ps1 '--bin zedrail --bin cli --bin auto_update_helper'
+assert_file_contains script/bundle-windows.ps1 '--bin zedrail --bin cli --bin auto-update-helper'
 assert_file_contains script/bundle-windows.ps1 '$editorExeName = "ZedRail.exe"'
 
 assert_file_contains crates/zed/resources/windows/zed.iss 'Source: "{#ResourcesDir}\{#AppExeName}.exe"'
